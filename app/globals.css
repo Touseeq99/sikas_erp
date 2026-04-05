@@ -1,0 +1,212 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 15, 23, 42;
+  --background-start-rgb: 248, 250, 252;
+  --background-end-rgb: 255, 255, 255;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  min-height: 100vh;
+}
+
+@layer components {
+  /* Modern Card Design */
+  .card {
+    @apply bg-white rounded-2xl shadow-lg border border-slate-100 p-6 transition-all duration-300;
+  }
+  
+  .card:hover {
+    @apply shadow-xl transform -translate-y-0.5;
+  }
+  
+  /* Gradient Cards */
+  .card-gradient {
+    @apply bg-gradient-to-br from-white to-slate-50 rounded-2xl shadow-lg border border-slate-100 p-6;
+  }
+  
+  /* Modern Buttons */
+  .btn {
+    @apply px-5 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-md;
+  }
+  
+  .btn-primary {
+    @apply bg-gradient-to-r from-sky-500 to-blue-600 text-white hover:from-sky-600 hover:to-blue-700 hover:shadow-lg;
+  }
+  
+  .btn-secondary {
+    @apply bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200;
+  }
+  
+  .btn-success {
+    @apply bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:from-emerald-600 hover:to-green-700;
+  }
+  
+  /* Input Fields */
+  .input {
+    @apply w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all bg-slate-50 focus:bg-white;
+  }
+  
+  .label {
+    @apply block text-sm font-semibold text-slate-700 mb-2;
+  }
+  
+  /* Modern Table */
+  .table-modern {
+    @apply w-full;
+  }
+  
+  .table-modern thead {
+    @apply bg-gradient-to-r from-slate-50 to-slate-100;
+  }
+  
+  .table-modern th {
+    @apply px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider;
+  }
+  
+  .table-modern td {
+    @apply px-6 py-4 text-sm text-slate-700;
+  }
+  
+  .table-modern tbody tr {
+    @apply border-b border-slate-100 hover:bg-sky-50/50 transition-colors;
+  }
+  
+  /* Status Badges */
+  .status-badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-bold;
+  }
+  
+  .status-pending {
+    @apply bg-amber-100 text-amber-700;
+  }
+  
+  .status-dispatched {
+    @apply bg-sky-100 text-sky-700;
+  }
+  
+  .status-delivered {
+    @apply bg-emerald-100 text-emerald-700;
+  }
+  
+  .status-cancelled {
+    @apply bg-red-100 text-red-700;
+  }
+  
+  /* Metric Cards */
+  .metric-card {
+    @apply card-gradient flex flex-col;
+  }
+  
+  .metric-value {
+    @apply text-3xl font-bold text-slate-800;
+  }
+  
+  .metric-label {
+    @apply text-sm font-medium text-slate-500;
+  }
+  
+  .metric-change {
+    @apply text-xs font-semibold mt-1;
+  }
+  
+  .metric-change-up {
+    @apply text-emerald-600;
+  }
+  
+  .metric-change-down {
+    @apply text-red-600;
+  }
+  
+  /* Animated Gradient Background */
+  .gradient-animated {
+    background: linear-gradient(-45deg, #0ea5e9, #6366f1, #8b5cf6, #ec4899);
+    background-size: 400% 400%;
+    animation: gradient 15s ease infinite;
+  }
+  
+  @keyframes gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  
+  /* Pulse Animation for Live Data */
+  .live-pulse {
+    @apply relative;
+  }
+  
+  .live-pulse::before {
+    content: '';
+    @apply absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full animate-ping;
+  }
+  
+  .live-pulse::after {
+    content: '';
+    @apply absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full;
+  }
+  
+  /* Sidebar */
+  .sidebar {
+    @apply w-72 bg-gradient-to-b from-slate-800 to-slate-900 text-white flex flex-col;
+  }
+  
+  .sidebar-item {
+    @apply flex items-center px-4 py-3 text-slate-300 hover:bg-slate-700/50 hover:text-white rounded-xl mx-3 transition-all;
+  }
+  
+  .sidebar-item-active {
+    @apply bg-gradient-to-r from-sky-500/20 to-transparent text-white border-r-4 border-sky-500;
+  }
+  
+  /* Modal */
+  .modal-overlay {
+    @apply fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50;
+  }
+  
+  .modal-content {
+    @apply bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6;
+  }
+  
+  /* Chart Container */
+  .chart-container {
+    @apply card h-80;
+  }
+  
+  /* Empty State */
+  .empty-state {
+    @apply text-center py-12;
+  }
+  
+  .empty-state-icon {
+    @apply text-6xl text-slate-300 mb-4;
+  }
+  
+  /* Custom Scrollbar */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: #1e293b;
+    border-radius: 3px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 3px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+  }
+}
