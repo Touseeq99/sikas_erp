@@ -15,12 +15,12 @@ interface Order {
   delivery_date?: string
   total_boxes?: number
   total_weight_tons?: number
+  is_outsourced?: boolean
 }
 
 interface Client {
   id: string
   client_id: string
-  client_name: string
 }
 
 interface Vehicle {
@@ -28,6 +28,7 @@ interface Vehicle {
   vehicle_id: string
   type: string
   registration_no: string
+  is_outsourced?: boolean
 }
 
 interface Driver {
@@ -48,7 +49,7 @@ export default function OrdersPage() {
   const [formData, setFormData] = useState({
     order_id: '',
     client_id: '',
-    order_date: '',
+    order_date: new Date().toISOString().split('T')[0],
     driver_id: '',
     vehicle_id: '',
     status: 'pending',
@@ -56,6 +57,7 @@ export default function OrdersPage() {
     delivery_date: '',
     total_boxes: '',
     total_weight_tons: '',
+    is_outsourced: false,
   })
 
   useEffect(() => {
@@ -68,223 +70,227 @@ export default function OrdersPage() {
   }, [])
 
   const loadData = async () => {
-    const [ordersRes, clientsRes, vehiclesRes, driversRes] = await Promise.all([
-      supabase.from('orders').select('*').order('order_id'),
-      supabase.from('clients').select('*').order('client_id'),
-      supabase.from('vehicles').select('*').order('vehicle_id'),
-      supabase.from('drivers').select('*').order('driver_id'),
-    ])
-    setOrders(ordersRes.data || [])
-    setClients(clientsRes.data || [])
-    setVehicles(vehiclesRes.data || [])
-    setDrivers(driversRes.data || [])
-    setLoading(false)
+    try {
+      const [ordersRes, clientsRes, vehiclesRes, driversRes] = await Promise.all([
+        supabase.from('orders').select('*').order('order_id'),
+        supabase.from('clients').select('id, client_id'),
+        supabase.from('vehicles').select('id, vehicle_id, type, registration_no, is_outsourced'),
+        supabase.from('drivers').select('id, driver_id, name'),
+      ])
+
+      setOrders(ordersRes.data || [])
+      setClients(clientsRes.data || [])
+      setVehicles(vehiclesRes.data || [])
+      setDrivers(driversRes.data || [])
+    } catch (error: any) {
+      console.error('Error loading orders data:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const payload = { ...formData }
+    const payload: any = { ...formData }
+    Object.keys(payload).forEach(key => { if (payload[key] === '') payload[key] = null })
+    if (payload.total_boxes) payload.total_boxes = parseInt(payload.total_boxes)
+    if (payload.total_weight_tons) payload.total_weight_tons = parseFloat(payload.total_weight_tons)
     
-    if (editingOrder) {
-      await supabase.from('orders').update(payload).eq('id', editingOrder.id)
-    } else {
-      await supabase.from('orders').insert(payload)
+    try {
+      if (editingOrder) {
+        await supabase.from('orders').update(payload).eq('id', editingOrder.id)
+      } else {
+        await supabase.from('orders').insert(payload)
+      }
+      setShowModal(false)
+      setEditingOrder(null)
+      resetForm()
+      loadData()
+      alert('Operation flow committed.')
+    } catch (error: any) {
+      alert('Error: ' + error.message)
     }
-    
-    setShowModal(false)
-    setEditingOrder(null)
-    resetForm()
-    loadData()
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this order?')) {
-      await supabase.from('orders').delete().eq('id', id)
-      loadData()
+    if (confirm('Terminate this operational flow?')) {
+      try {
+        await supabase.from('orders').delete().eq('id', id)
+        loadData()
+      } catch (error: any) {
+        alert('Action failed: ' + error.message)
+      }
     }
   }
 
   const resetForm = () => {
     setFormData({
-      order_id: '',
-      client_id: '',
-      order_date: '',
-      driver_id: '',
-      vehicle_id: '',
-      status: 'pending',
-      delivery_address: '',
-      delivery_date: '',
-      total_boxes: '',
-      total_weight_tons: '',
+      order_id: '', client_id: '', order_date: new Date().toISOString().split('T')[0],
+      driver_id: '', vehicle_id: '', status: 'pending', delivery_address: '',
+      delivery_date: '', total_boxes: '', total_weight_tons: '', is_outsourced: false,
     })
-  }
-
-  const statusColors: Record<string, string> = {
-    pending: 'bg-amber-100 text-amber-700 border-amber-200',
-    dispatched: 'bg-blue-100 text-blue-700 border-blue-200',
-    delivered: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    cancelled: 'bg-red-100 text-red-700 border-red-200',
-  }
-
-  const statusLabels: Record<string, string> = {
-    pending: 'Pending',
-    dispatched: 'Dispatched',
-    delivered: 'Delivered',
-    cancelled: 'Cancelled',
-  }
-
-  const getClientName = (clientId: string) => {
-    const client = clients.find(c => c.client_id === clientId)
-    return client?.client_name || clientId
-  }
-
-  const getVehicleInfo = (vehicleId: string) => {
-    const vehicle = vehicles.find(v => v.vehicle_id === vehicleId)
-    return vehicle ? `${vehicle.vehicle_id} (${vehicle.registration_no})` : vehicleId
-  }
-
-  const getDriverName = (driverId: string) => {
-    const driver = drivers.find(d => d.driver_id === driverId)
-    return driver?.name || driverId
   }
 
   const filteredOrders = filterStatus === 'all' ? orders : orders.filter(o => o.status === filterStatus)
 
   if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="animate-spin rounded-full h-12 w-12 border-4 border-sky-500 border-t-transparent"></div>
+    <div className="flex items-center justify-center h-[60vh]">
+      <div className="w-16 h-16 border-4 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
     </div>
   )
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-10 pb-20">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">📋 Orders</h1>
-          <p className="text-slate-500 mt-1">Manage your orders</p>
+          <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Operational <span className="text-sky-500">Flow</span></h1>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Logistics Transaction Ledger</p>
         </div>
-        <button onClick={() => { setEditingOrder(null); resetForm(); setShowModal(true) }} className="btn btn-primary flex items-center gap-2">
-          <span>+</span> New Order
-        </button>
+        <div className="flex items-center gap-4 bg-white p-3 rounded-[2rem] shadow-sm border border-slate-100">
+          <button onClick={() => { setEditingOrder(null); resetForm(); setShowModal(true) }} className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs hover:bg-sky-500 transition-all shadow-xl shadow-slate-200 uppercase tracking-widest italic">
+            + Provision Order
+          </button>
+        </div>
       </div>
 
-      <div className="flex space-x-2">
-        {['all', 'pending', 'dispatched', 'delivered', 'cancelled'].map(status => (
+      {/* Filter Mode */}
+      <div className="flex overflow-x-auto pb-4 gap-3 no-scrollbar">
+        {['all', 'pending', 'dispatched', 'delivered'].map(status => (
           <button
             key={status}
             onClick={() => setFilterStatus(status)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${filterStatus === status ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+            className={`px-10 py-3 rounded-[2rem] font-black text-[10px] transition-all uppercase tracking-widest italic flex-shrink-0 ${filterStatus === status ? 'bg-slate-900 text-white shadow-xl' : 'bg-white text-slate-400 border border-slate-100'}`}
           >
-            {status.charAt(0).toUpperCase() + status.slice(1)}
+            {status}
           </button>
         ))}
       </div>
 
-      <div className="card overflow-hidden p-0">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
-            <tr>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Order ID</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Client</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Date</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Vehicle</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Driver</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 bg-white">
-            {filteredOrders.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
-                  <div className="text-4xl mb-2">📋</div>
-                  No orders found.
-                </td>
-              </tr>
-            ) : (
-              filteredOrders.map((o) => (
-                <tr key={o.id} className="hover:bg-sky-50/50 transition-colors">
-                  <td className="px-6 py-4 font-semibold text-slate-800">{o.order_id}</td>
-                  <td className="px-6 py-4 text-slate-600">{getClientName(o.client_id)}</td>
-                  <td className="px-6 py-4 text-slate-600">{o.order_date}</td>
-                  <td className="px-6 py-4 text-slate-600">{getVehicleInfo(o.vehicle_id)}</td>
-                  <td className="px-6 py-4 text-slate-600">{getDriverName(o.driver_id)}</td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${statusColors[o.status] || 'bg-gray-100 text-gray-700'}`}>
-                      {statusLabels[o.status] || o.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <button onClick={() => { setEditingOrder(o); setFormData({ order_id: o.order_id, client_id: o.client_id, order_date: o.order_date || '', driver_id: o.driver_id || '', vehicle_id: o.vehicle_id || '', status: o.status, delivery_address: o.delivery_address || '', delivery_date: o.delivery_date || '', total_boxes: o.total_boxes?.toString() || '', total_weight_tons: o.total_weight_tons?.toString() || '' }); setShowModal(true) }} className="text-sky-600 hover:text-sky-800 font-medium mr-4">Edit</button>
-                    <button onClick={() => handleDelete(o.id)} className="text-red-600 hover:text-red-800 font-medium">Delete</button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      {/* Hero Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="bg-slate-900 rounded-[4rem] p-12 text-white shadow-2xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-sky-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2"></div>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">Total Managed Orders</p>
+          <p className="text-5xl font-black italic tracking-tighter">{orders.length}<span className="text-sky-500 text-2xl uppercase ml-2 tracking-widest font-black">Entries</span></p>
+        </div>
+        <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Active Pipelines</p>
+          <p className="text-5xl font-black text-emerald-500 italic uppercase">{orders.filter(o => o.status !== 'delivered').length}</p>
+        </div>
+        <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Completed Logistics</p>
+          <p className="text-5xl font-black text-sky-500 italic uppercase">{orders.filter(o => o.status === 'delivered').length}</p>
+        </div>
       </div>
 
+      {/* Operations Table */}
+      <div className="bg-white rounded-[4rem] border border-slate-100 shadow-sm overflow-hidden p-6">
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead>
+              <tr className="border-b border-slate-50">
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Order Key</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Client Node</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Asset / Pilot</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Lifecycle</th>
+                <th className="px-8 py-8 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Operations</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {filteredOrders.map((o) => (
+                <tr key={o.id} className="group hover:bg-slate-50/50 transition-all">
+                  <td className="px-8 py-8 font-black text-slate-900 italic tracking-tighter text-2xl">{o.order_id}</td>
+                  <td className="px-8 py-8">
+                     <span className="font-black text-slate-800 uppercase tracking-tight text-sm block leading-none">{o.client_id}</span>
+                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 block">{o.order_date}</span>
+                  </td>
+                  <td className="px-8 py-8">
+                     <div className="flex flex-col">
+                        <span className="font-black text-slate-900 italic text-sm uppercase">{o.vehicle_id || 'OUTSOURCED'}</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{o.driver_id || 'External Pilot'}</span>
+                     </div>
+                  </td>
+                  <td className="px-8 py-8">
+                    <span className={`inline-flex px-4 py-1.5 rounded-full text-[10px] font-black uppercase italic tracking-widest ${o.status === 'delivered' ? 'bg-emerald-500 text-white shadow-lg' : 'bg-sky-500 text-white shadow-lg'}`}>
+                      {o.status}
+                    </span>
+                  </td>
+                  <td className="px-8 py-8 text-right">
+                    <div className="flex items-center justify-end gap-4 opacity-0 group-hover:opacity-100 transition-all">
+                      <button onClick={() => { 
+                        setEditingOrder(o); 
+                        setFormData({ 
+                          order_id: o.order_id, client_id: o.client_id, order_date: o.order_date || '', 
+                          driver_id: o.driver_id || '', vehicle_id: o.vehicle_id || '', 
+                          status: o.status, delivery_address: o.delivery_address || '', 
+                          delivery_date: o.delivery_date || '', total_boxes: o.total_boxes?.toString() || '', 
+                          total_weight_tons: o.total_weight_tons?.toString() || '', is_outsourced: o.is_outsourced || false,
+                        }); 
+                        setShowModal(true) 
+                      }} className="p-3 bg-sky-50 text-sky-600 rounded-xl hover:bg-sky-900 hover:text-white transition-all">✏️</button>
+                      <button onClick={() => handleDelete(o.id)} className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-500 hover:text-white transition-all">🗑️</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Operational Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-slate-800">{editingOrder ? 'Edit Order' : 'New Order'}</h2>
-              <button onClick={() => { setShowModal(false); setEditingOrder(null); resetForm() }} className="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Order ID *</label>
-                  <input required className="input" placeholder="O501" value={formData.order_id} onChange={e => setFormData({...formData, order_id: e.target.value})} />
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-3xl flex items-center justify-center z-50 p-6">
+          <div className="bg-white rounded-[4rem] shadow-2xl w-full max-w-2xl p-14 overflow-y-auto max-h-[90vh] border border-white/50 relative">
+            <button onClick={() => { setShowModal(false); setEditingOrder(null) }} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900 text-4xl transition-all font-black">✕</button>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">{editingOrder ? 'Modify Code' : 'Initialize Flow'}</h2>
+            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-12">Logistics operation identification</p>
+            
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Order Key *</label>
+                  <input required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="O-1001" value={formData.order_id} onChange={e => setFormData({...formData, order_id: e.target.value})} />
                 </div>
-                <div>
-                  <label className="label">Client *</label>
-                  <select required className="input" value={formData.client_id} onChange={e => setFormData({...formData, client_id: e.target.value})}>
-                    <option value="">Select Client</option>
-                    {clients.map(c => <option key={c.id} value={c.client_id}>{c.client_name}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Order Date</label>
-                  <input type="date" className="input" value={formData.order_date} onChange={e => setFormData({...formData, order_date: e.target.value})} />
-                </div>
-                <div>
-                  <label className="label">Status</label>
-                  <select className="input" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
-                    <option value="pending">Pending</option>
-                    <option value="dispatched">Dispatched</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
+                <div className="space-y-3">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Origin Node (Client)</label>
+                   <select required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" value={formData.client_id} onChange={e => setFormData({...formData, client_id: e.target.value})}>
+                     <option value="">Select ID...</option>
+                     {clients.map(c => <option key={c.id} value={c.client_id}>{c.client_id}</option>)}
+                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Vehicle</label>
-                  <select className="input" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
-                    <option value="">Select Vehicle</option>
-                    {vehicles.map(v => <option key={v.id} value={v.vehicle_id}>{v.vehicle_id} - {v.registration_no}</option>)}
-                  </select>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Resource Source</label>
+                  <div className="flex gap-4">
+                    <button type="button" onClick={() => setFormData({...formData, is_outsourced: false})} className={`flex-1 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest italic transition-all ${!formData.is_outsourced ? 'bg-slate-900 text-white shadow-xl' : 'bg-slate-50 text-slate-400'}`}>In-House</button>
+                    <button type="button" onClick={() => setFormData({...formData, is_outsourced: true, vehicle_id: '', driver_id: ''})} className={`flex-1 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest italic transition-all ${formData.is_outsourced ? 'bg-slate-900 text-white shadow-xl' : 'bg-slate-50 text-slate-400'}`}>Outsource</button>
+                  </div>
                 </div>
-                <div>
-                  <label className="label">Driver</label>
-                  <select className="input" value={formData.driver_id} onChange={e => setFormData({...formData, driver_id: e.target.value})}>
-                    <option value="">Select Driver</option>
-                    {drivers.map(d => <option key={d.id} value={d.driver_id}>{d.name}</option>)}
-                  </select>
+                <div className="space-y-3">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Asset Code</label>
+                   <select disabled={formData.is_outsourced} className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner disabled:opacity-20" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
+                     <option value="">Select Asset...</option>
+                     {vehicles.map(v => <option key={v.id} value={v.vehicle_id}>{v.vehicle_id}</option>)}
+                   </select>
                 </div>
               </div>
-              <div>
-                <label className="label">Delivery Address</label>
-                <textarea className="input" rows={2} value={formData.delivery_address} onChange={e => setFormData({...formData, delivery_address: e.target.value})} />
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Deployment State</label>
+                <select className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
+                  <option value="pending">PENDING INITIATION</option>
+                  <option value="dispatched">IN TRANSIT</option>
+                  <option value="delivered">NODE REACHED</option>
+                </select>
               </div>
-              <div className="flex justify-end space-x-3 pt-4">
-                <button type="button" onClick={() => { setShowModal(false); setEditingOrder(null); resetForm() }} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary">{editingOrder ? 'Update' : 'Create'} Order</button>
-              </div>
+
+              <button type="submit" className="w-full py-8 bg-slate-900 text-white rounded-[2rem] font-black text-xl shadow-2xl hover:bg-sky-500 transition-all active:scale-[0.98] uppercase tracking-[0.2em] italic">
+                 Commit Deployment
+              </button>
             </form>
           </div>
         </div>

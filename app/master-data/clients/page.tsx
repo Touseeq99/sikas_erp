@@ -1,253 +1,280 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/app/lib/supabase'
-import * as XLSX from 'xlsx'
 
 interface Client {
   id: string
   client_id: string
-  client_name: string
-  contact_info: string
-  address: string
-  contact_person?: string
-  phone?: string
-  email?: string
+}
+
+interface Order {
+  order_id: string
+  client_id: string
+  vehicle_id: string
+}
+
+interface Vehicle {
+  vehicle_id: string
+  is_outsourced: boolean
+}
+
+interface Revenue {
+  order_id: string
+  amount: number
+  payment_status: string
+}
+
+interface ProfitTrip {
+  order_id: string
+  expenses: number
+}
+
+interface ClientStats {
+  totalOrders: number
+  outsourcedVehicleOrders: number
+  inHouseVehicleOrders: number
+  totalRevenue: number
+  totalProfit: number
+  pendingPayments: number
 }
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([])
+  const [orders, setOrders] = useState<Order[]>([])
+  const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [revenues, setRevenues] = useState<Revenue[]>([])
+  const [profits, setProfits] = useState<ProfitTrip[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
-  const [showImportModal, setShowImportModal] = useState(false)
-  const [importFile, setImportFile] = useState<File | null>(null)
-  const [importing, setImporting] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [editingClient, setEditingClient] = useState<Client | null>(null)
   const [formData, setFormData] = useState({
     client_id: '',
-    client_name: '',
-    contact_info: '',
-    address: '',
-    contact_person: '',
-    phone: '',
   })
 
   useEffect(() => {
-    loadClients()
-    const channel = supabase
-      .channel('clients-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, loadClients)
+    loadData()
+    const channel = supabase.channel('clients-all')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, loadData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, loadData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'revenue' }, loadData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profit_per_trip' }, loadData)
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [])
 
-  const loadClients = async () => {
-    const { data } = await supabase.from('clients').select('*').order('client_id')
-    setClients(data || [])
-    setLoading(false)
+  const loadData = async () => {
+    try {
+      const [clientsRes, ordersRes, vehiclesRes, revenueRes, profitRes] = await Promise.all([
+        supabase.from('clients').select('id, client_id').order('client_id'),
+        supabase.from('orders').select('order_id, client_id, vehicle_id'),
+        supabase.from('vehicles').select('vehicle_id, is_outsourced'),
+        supabase.from('revenue').select('order_id, amount, payment_status'),
+        supabase.from('profit_per_trip').select('order_id, expenses, profit'),
+      ])
+      
+      setClients(clientsRes.data || [])
+      setOrders(ordersRes.data || [])
+      setVehicles(vehiclesRes.data || [])
+      setRevenues(revenueRes.data || [])
+      setProfits(profitRes.data || [])
+    } catch (error: any) {
+      console.error('Error loading data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getClientStats = (clientId: string): ClientStats => {
+    const clientOrders = orders.filter(o => o.client_id === clientId)
+    const clientOrderIds = clientOrders.map(o => o.order_id)
+    
+    let outsourcedVehicleCount = 0
+    let inHouseVehicleCount = 0
+
+    clientOrders.forEach(o => {
+      const vehicle = vehicles.find(v => v.vehicle_id === o.vehicle_id)
+      if (vehicle?.is_outsourced) {
+        outsourcedVehicleCount++
+      } else {
+        inHouseVehicleCount++
+      }
+    })
+
+    const clientRevenues = revenues.filter(r => clientOrderIds.includes(r.order_id))
+    const totalRevenue = clientRevenues.reduce((s, r) => s + (r.amount || 0), 0)
+    const unpaidRevenue = clientRevenues.filter(r => r.payment_status === 'unpaid').reduce((s, r) => s + (r.amount || 0), 0)
+
+    // DYNAMIC PROFIT CALCULATION logic:
+    // Profit = (Revenue from Revenue Table) - (Expenses from Trip Table)
+    const totalProfit = clientOrderIds.reduce((sum, oid) => {
+       const rev = revenues.find(r => r.order_id === oid)?.amount || 0
+       const trip = profits.find(p => p.order_id === oid)
+       const exp = trip ? trip.expenses : 0
+       return sum + (rev - exp)
+    }, 0)
+
+    return {
+      totalOrders: clientOrders.length,
+      outsourcedVehicleOrders: outsourcedVehicleCount,
+      inHouseVehicleOrders: inHouseVehicleCount,
+      totalRevenue,
+      totalProfit,
+      pendingPayments: unpaidRevenue
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const payload = { ...formData }
-    
-    if (editingClient) {
-      await supabase.from('clients').update(payload).eq('id', editingClient.id)
-    } else {
-      await supabase.from('clients').insert(payload)
+    try {
+      const payload = { ...formData, client_name: '-' }
+      if (editingClient) {
+        await supabase.from('clients').update(payload).eq('id', editingClient.id)
+      } else {
+        await supabase.from('clients').insert(payload)
+      }
+      setShowModal(false)
+      setEditingClient(null)
+      loadData()
+      alert('Network node updated.')
+    } catch (error: any) {
+      alert('Error: ' + error.message)
     }
-    
-    setShowModal(false)
-    setEditingClient(null)
-    setFormData({ client_id: '', client_name: '', contact_info: '', address: '', contact_person: '', phone: '' })
-    loadClients()
-  }
-
-  const handleEdit = (client: Client) => {
-    setEditingClient(client)
-    setFormData({
-      client_id: client.client_id,
-      client_name: client.client_name,
-      contact_info: client.contact_info || '',
-      address: client.address || '',
-      contact_person: client.contact_person || '',
-      phone: client.phone || '',
-    })
-    setShowModal(true)
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this client?')) {
-      await supabase.from('clients').delete().eq('id', id)
-      loadClients()
-    }
-  }
-
-  const handleBulkImport = async () => {
-    if (!importFile) return
-    setImporting(true)
-    try {
-      const data = await importFile.arrayBuffer()
-      const workbook = XLSX.read(data)
-      const sheet = workbook.Sheets['Clients']
-      if (!sheet) throw new Error('Clients sheet not found in Excel file')
-      
-      const json = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][]
-      const rows = json.slice(1).filter(row => row[0] && row[1])
-      
-      const clients = rows.map(row => ({
-        client_id: row[0]?.toString() || row[1]?.toString() || '',
-        client_name: row[1]?.toString() || row[0]?.toString() || '',
-        contact_info: row[2]?.toString() || '',
-        address: row[3]?.toString() || '',
-      })).filter(c => c.client_id && c.client_name)
-      
-      if (clients.length > 0) {
-        await supabase.from('clients').upsert(clients, { onConflict: 'client_id' })
-        alert(`Successfully imported ${clients.length} clients!`)
-        loadClients()
-      } else {
-        alert('No valid clients found in the file')
+    if (confirm('De-register this Client ID node?')) {
+      try {
+        await supabase.from('clients').delete().eq('id', id)
+        loadData()
+      } catch (error: any) {
+        alert('Action failed: ' + error.message)
       }
-    } catch (err: any) {
-      alert('Import failed: ' + err.message)
     }
-    setImporting(false)
-    setShowImportModal(false)
-    setImportFile(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="animate-spin rounded-full h-12 w-12 border-4 border-sky-500 border-t-transparent"></div>
+    <div className="flex items-center justify-center h-[60vh]">
+      <div className="w-16 h-16 border-4 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
     </div>
   )
 
+  const totalGlobalRevenue = revenues.reduce((s, r) => s + (r.amount || 0), 0)
+  
+  // Also calculate total global profit dynamically
+  const totalGlobalProfit = orders.reduce((sum, o) => {
+    const rev = revenues.find(r => r.order_id === o.order_id)?.amount || 0
+    const trip = profits.find(p => p.order_id === o.order_id)
+    const exp = trip ? trip.expenses : 0
+    return sum + (rev - exp)
+  }, 0)
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-10 pb-20">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">🏢 Clients</h1>
-          <p className="text-slate-500 mt-1">Manage your clients</p>
+          <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Client <span className="text-sky-500">Nodes</span></h1>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Live Economic Synchronization Active</p>
         </div>
-        <div className="flex space-x-3">
-          <button onClick={() => setShowImportModal(true)} className="btn btn-secondary flex items-center gap-2">
-            <span>📥</span> Import Excel
-          </button>
-          <button onClick={() => { setEditingClient(null); setFormData({ client_id: '', client_name: '', contact_info: '', address: '', contact_person: '', phone: '' }); setShowModal(true) }} className="btn btn-primary flex items-center gap-2">
-            <span>+</span> Add Client
+        <div className="flex items-center gap-4 bg-white p-3 rounded-[2rem] shadow-sm border border-slate-100">
+          <button onClick={() => { setEditingClient(null); setFormData({ client_id: '' }); setShowModal(true) }} className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs hover:bg-sky-500 transition-all shadow-xl shadow-slate-200 uppercase tracking-widest italic">
+            + Provision Node ID
           </button>
         </div>
       </div>
 
-      <div className="card overflow-hidden p-0">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
-            <tr>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Client ID</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Client Name</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Contact Info</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Address</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 bg-white">
-            {clients.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
-                  <div className="text-4xl mb-2">🏢</div>
-                  No clients found. Add one to get started.
-                </td>
+      {/* Hero Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="bg-slate-900 rounded-[4rem] p-12 text-white shadow-2xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2"></div>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">Total Registered Nodes</p>
+          <p className="text-5xl font-black italic tracking-tighter">{clients.length}<span className="text-sky-500 text-2xl uppercase ml-2 tracking-widest font-black">IDs</span></p>
+        </div>
+        <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm relative overflow-hidden">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Dynamic Global Yield</p>
+          <p className="text-4xl font-black text-emerald-500 italic uppercase leading-none">PKR {(totalGlobalProfit/1000).toFixed(0)}K</p>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-3 block italic">Real-time sync enabled</span>
+        </div>
+        <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Outstanding Receivables</p>
+          <p className="text-4xl font-black text-red-500 italic uppercase">PKR {(revenues.filter(r => r.payment_status === 'unpaid').reduce((s, r) => s + (r.amount || 0), 0)/1000).toFixed(0)}K</p>
+        </div>
+      </div>
+
+      {/* Pivot List UI */}
+      <div className="bg-white rounded-[4rem] border border-slate-100 shadow-sm overflow-hidden p-6">
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead>
+              <tr className="border-b border-slate-50">
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Node Identifier</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Operational Logic</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Asset Density</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Live Net Yield</th>
+                <th className="px-8 py-8 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Operations</th>
               </tr>
-            ) : (
-              clients.map((c) => (
-                <tr key={c.id} className="hover:bg-sky-50/50 transition-colors">
-                  <td className="px-6 py-4 font-semibold text-slate-800">{c.client_id}</td>
-                  <td className="px-6 py-4 text-slate-600">{c.client_name}</td>
-                  <td className="px-6 py-4 text-slate-600">{c.contact_info}</td>
-                  <td className="px-6 py-4 text-slate-600">{c.address}</td>
-                  <td className="px-6 py-4">
-                    <button onClick={() => handleEdit(c)} className="text-sky-600 hover:text-sky-800 font-medium mr-4">Edit</button>
-                    <button onClick={() => handleDelete(c.id)} className="text-red-600 hover:text-red-800 font-medium">Delete</button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {clients.map((c) => {
+                const stats = getClientStats(c.client_id)
+                return (
+                  <tr key={c.id} className="group hover:bg-slate-50/50 transition-all">
+                    <td className="px-8 py-8 font-black text-slate-900 italic tracking-tighter text-2xl leading-none">{c.client_id}</td>
+                    <td className="px-8 py-8">
+                       <span className="font-black text-slate-800 uppercase tracking-tight text-sm block leading-none">{stats.totalOrders} Global Transmissions</span>
+                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 block">Stability: VERIFIED</span>
+                    </td>
+                    <td className="px-8 py-8">
+                      <div className="flex flex-col gap-2">
+                        <span className="text-[10px] font-black uppercase italic text-emerald-600 flex items-center gap-1">
+                           <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span> {stats.inHouseVehicleOrders} In-House
+                        </span>
+                        <span className="text-[10px] font-black uppercase italic text-purple-600 flex items-center gap-1">
+                           <span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span> {stats.outsourcedVehicleOrders} Outsourced
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-8">
+                       <div className="flex flex-col">
+                          <span className={`font-black italic text-xl tracking-tighter ${stats.totalProfit >= 0 ? 'text-sky-500' : 'text-red-500'}`}>
+                             PKR {stats.totalProfit.toLocaleString()}
+                          </span>
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mt-1 italic">Synced with Revenue</span>
+                       </div>
+                    </td>
+                    <td className="px-8 py-8 text-right">
+                      <div className="flex items-center justify-end gap-4 opacity-0 group-hover:opacity-100 transition-all">
+                        <button onClick={() => { setEditingClient(c); setFormData({ client_id: c.client_id }); setShowModal(true) }} className="p-3 bg-sky-50 text-sky-600 rounded-xl hover:bg-sky-900 hover:text-white transition-all">✏️</button>
+                        <button onClick={() => handleDelete(c.id)} className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-500 hover:text-white transition-all">🗑️</button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-slate-800">{editingClient ? 'Edit Client' : 'Add New Client'}</h2>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Client ID *</label>
-                  <input required className="input" placeholder="C01" value={formData.client_id} onChange={e => setFormData({...formData, client_id: e.target.value})} />
-                </div>
-                <div>
-                  <label className="label">Client Name *</label>
-                  <input required className="input" placeholder="Company Name" value={formData.client_name} onChange={e => setFormData({...formData, client_name: e.target.value})} />
-                </div>
+       {/* Node Registration Modal */}
+       {showModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-3xl flex items-center justify-center z-50 p-6">
+          <div className="bg-white rounded-[4rem] shadow-2xl w-full max-w-lg p-14 overflow-y-auto max-h-[90vh] border border-white/50 relative">
+            <button onClick={() => { setShowModal(false); setEditingClient(null) }} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900 text-4xl transition-all font-black">✕</button>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2 leading-none">{editingClient ? 'Identify node' : 'Provision Node'}</h2>
+            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-12">Network origin Identifier</p>
+            
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Node Identifier *</label>
+                <input required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="CL-ID-2025" value={formData.client_id} onChange={e => setFormData({...formData, client_id: e.target.value})} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Contact Info</label>
-                  <input className="input" placeholder="03001234567" value={formData.contact_info} onChange={e => setFormData({...formData, contact_info: e.target.value})} />
-                </div>
-                <div>
-                  <label className="label">Phone</label>
-                  <input className="input" placeholder="03001234567" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-                </div>
-              </div>
-              <div>
-                <label className="label">Contact Person</label>
-                <input className="input" placeholder="John Doe" value={formData.contact_person} onChange={e => setFormData({...formData, contact_person: e.target.value})} />
-              </div>
-              <div>
-                <label className="label">Address</label>
-                <textarea className="input" rows={2} placeholder="Lahore, Pakistan" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
-              </div>
-              <div className="flex justify-end space-x-3 pt-4">
-                <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary">{editingClient ? 'Update' : 'Add'} Client</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
-      {showImportModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-slate-800">Import Clients from Excel</h2>
-              <button onClick={() => { setShowImportModal(false); setImportFile(null); if(fileInputRef.current) fileInputRef.current.value = '' }} className="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
-            </div>
-            <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 mb-4">
-              <p className="text-sm text-sky-700 font-medium mb-2">Expected Columns:</p>
-              <p className="text-xs text-sky-600">ClientID, Name, ContactInfo, Address</p>
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="input mb-4"
-              onChange={e => setImportFile(e.target.files?.[0] || null)}
-            />
-            <div className="flex justify-end space-x-3">
-              <button onClick={() => { setShowImportModal(false); setImportFile(null); if(fileInputRef.current) fileInputRef.current.value = '' }} className="btn btn-secondary">Cancel</button>
-              <button onClick={handleBulkImport} disabled={!importFile || importing} className="btn btn-primary">
-                {importing ? 'Importing...' : 'Import'}
+              <button type="submit" className="w-full py-8 bg-slate-900 text-white rounded-[2rem] font-black text-xl shadow-2xl hover:bg-sky-500 transition-all active:scale-[0.98] uppercase tracking-[0.2em] italic leading-none">
+                 Execute Registration
               </button>
-            </div>
+            </form>
           </div>
         </div>
       )}

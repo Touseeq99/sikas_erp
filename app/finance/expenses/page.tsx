@@ -28,7 +28,7 @@ export default function ExpensesPage() {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
   const [formData, setFormData] = useState({
     expense_id: '',
-    expense_date: '',
+    expense_date: new Date().toISOString().split('T')[0],
     category: 'fuel',
     amount: '',
     notes: '',
@@ -48,159 +48,199 @@ export default function ExpensesPage() {
   }, [])
 
   const loadData = async () => {
-    const [expensesRes, vehiclesRes] = await Promise.all([
-      supabase.from('expenses').select('*').order('expense_date', { ascending: false }),
-      supabase.from('vehicles').select('*').order('vehicle_id'),
-    ])
-    setExpenses(expensesRes.data || [])
-    setVehicles(vehiclesRes.data || [])
-    setLoading(false)
+    try {
+      const [expensesRes, vehiclesRes] = await Promise.all([
+        supabase.from('expenses').select('*').order('expense_date', { ascending: false }),
+        supabase.from('vehicles').select('*').order('vehicle_id'),
+      ])
+      setExpenses(expensesRes.data || [])
+      setVehicles(vehiclesRes.data || [])
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const payload = { ...formData, amount: parseFloat(formData.amount) || 0 }
-    
-    if (editingExpense) {
-      await supabase.from('expenses').update(payload).eq('id', editingExpense.id)
-    } else {
-      await supabase.from('expenses').insert(payload)
+    // CRITICAL: Ensure vehicle_id is null if empty string to avoid FK violation
+    const payload = { 
+      ...formData, 
+      amount: parseFloat(formData.amount) || 0,
+      vehicle_id: formData.vehicle_id === '' ? null : formData.vehicle_id
     }
     
-    setShowModal(false)
-    setEditingExpense(null)
-    resetForm()
-    loadData()
+    try {
+      if (editingExpense) {
+        const { error } = await supabase.from('expenses').update(payload).eq('id', editingExpense.id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('expenses').insert(payload)
+        if (error) throw error
+      }
+      setShowModal(false)
+      setEditingExpense(null)
+      resetForm()
+      loadData()
+      alert('Burn ledger updated.')
+    } catch (error: any) {
+      alert('Action failed: ' + error.message)
+    }
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this expense?')) {
-      await supabase.from('expenses').delete().eq('id', id)
-      loadData()
+    if (confirm('Permanently redact this expense entry?')) {
+      try {
+        const { error } = await supabase.from('expenses').delete().eq('id', id)
+        if (error) throw error
+        loadData()
+      } catch (error: any) {
+        alert('Action failed: ' + error.message)
+      }
     }
   }
 
   const resetForm = () => {
-    setFormData({ expense_id: '', expense_date: '', category: 'fuel', amount: '', notes: '', vehicle_id: '', receipt_number: '' })
-  }
-
-  const getVehicleInfo = (vehicleId: string) => {
-    const vehicle = vehicles.find(v => v.vehicle_id === vehicleId)
-    return vehicle ? `${vehicle.vehicle_id} (${vehicle.registration_no})` : '-'
+    setFormData({ 
+      expense_id: '', 
+      expense_date: new Date().toISOString().split('T')[0], 
+      category: 'fuel', 
+      amount: '', 
+      notes: '', 
+      vehicle_id: '', 
+      receipt_number: '' 
+    })
   }
 
   const totalAmount = expenses.reduce((sum, e) => sum + (e.amount || 0), 0)
+  const monthlyAmount = expenses
+    .filter(e => e.expense_date?.startsWith(new Date().toISOString().slice(0, 7)))
+    .reduce((sum, e) => sum + (e.amount || 0), 0)
 
   if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="animate-spin rounded-full h-12 w-12 border-4 border-sky-500 border-t-transparent"></div>
+    <div className="flex items-center justify-center h-[60vh]">
+      <div className="w-16 h-16 border-4 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
     </div>
   )
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-10 pb-20">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">📊 Expenses</h1>
-          <p className="text-slate-500 mt-1">Track all expenses</p>
+          <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Burn <span className="text-red-500">Rate</span></h1>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Operational Expenditure Manifest</p>
         </div>
-        <button onClick={() => { setEditingExpense(null); resetForm(); setShowModal(true) }} className="btn btn-primary flex items-center gap-2">
-          <span>+</span> Add Expense
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="card">
-          <p className="text-sm text-slate-500">Total Expenses</p>
-          <p className="text-2xl font-bold text-red-600">PKR {totalAmount.toLocaleString()}</p>
-        </div>
-        <div className="card">
-          <p className="text-sm text-slate-500">This Month</p>
-          <p className="text-2xl font-bold text-slate-800">PKR {expenses.filter(e => e.expense_date?.startsWith(new Date().toISOString().slice(0, 7))).reduce((sum, e) => sum + (e.amount || 0), 0).toLocaleString()}</p>
-        </div>
-        <div className="card">
-          <p className="text-sm text-slate-500">Total Records</p>
-          <p className="text-2xl font-bold text-slate-800">{expenses.length}</p>
+        <div className="flex items-center gap-4 bg-white p-3 rounded-[2rem] shadow-sm border border-slate-100">
+          <button onClick={() => { setEditingExpense(null); resetForm(); setShowModal(true) }} className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs hover:bg-red-500 transition-all shadow-xl shadow-slate-200 uppercase tracking-widest italic">
+            + Log Burn Event
+          </button>
         </div>
       </div>
 
-      <div className="card overflow-hidden p-0">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
-            <tr>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Expense ID</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Date</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Category</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Amount (PKR)</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Notes</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 bg-white">
-            {expenses.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                  <div className="text-4xl mb-2">📊</div>
-                  No expenses found.
-                </td>
+      {/* Hero Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="bg-slate-900 rounded-[4rem] p-12 text-white shadow-2xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2"></div>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">Total Aggregated Burn</p>
+          <p className="text-5xl font-black italic tracking-tighter text-red-400">PKR {(totalAmount/1000).toFixed(0)}K</p>
+        </div>
+        <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm relative overflow-hidden group">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Monthly Burn Flow</p>
+          <p className="text-5xl font-black text-red-500 italic uppercase">PKR {(monthlyAmount/1000).toFixed(0)}K</p>
+        </div>
+        <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Data Samples</p>
+          <p className="text-5xl font-black text-slate-900 italic uppercase">{expenses.length}</p>
+        </div>
+      </div>
+
+      {/* Persistence Table UI */}
+      <div className="bg-white rounded-[4rem] border border-slate-100 shadow-sm overflow-hidden p-6">
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead>
+              <tr className="border-b border-slate-50">
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Entry ID</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Event Logic (Cat)</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Timestamp</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Value (PKR)</th>
+                <th className="px-8 py-8 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Operations</th>
               </tr>
-            ) : (
-              expenses.map((e) => (
-                <tr key={e.id} className="hover:bg-sky-50/50 transition-colors">
-                  <td className="px-6 py-4 font-semibold text-slate-800">{e.expense_id}</td>
-                  <td className="px-6 py-4 text-slate-600">{e.expense_date}</td>
-                  <td className="px-6 py-4 text-slate-600 capitalize">{e.category}</td>
-                  <td className="px-6 py-4 text-red-600 font-medium">{e.amount?.toLocaleString()}</td>
-                  <td className="px-6 py-4 text-slate-600">{e.notes || '-'}</td>
-                  <td className="px-6 py-4">
-                    <button onClick={() => { setEditingExpense(e); setFormData({ expense_id: e.expense_id, expense_date: e.expense_date || '', category: e.category || 'fuel', amount: e.amount?.toString() || '', notes: e.notes || '', vehicle_id: e.vehicle_id || '', receipt_number: e.receipt_number || '' }); setShowModal(true) }} className="text-sky-600 hover:text-sky-800 font-medium mr-4">Edit</button>
-                    <button onClick={() => handleDelete(e.id)} className="text-red-600 hover:text-red-800 font-medium">Delete</button>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {expenses.map((e) => (
+                <tr key={e.id} className="group hover:bg-slate-50/50 transition-all">
+                  <td className="px-8 py-8 font-black text-slate-900 italic tracking-tighter text-2xl leading-none uppercase">{e.expense_id}</td>
+                  <td className="px-8 py-8">
+                     <span className="font-black text-slate-800 uppercase tracking-tight text-sm block leading-none">{e.category}</span>
+                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 block italic">{e.notes || 'No Remarks'}</span>
+                  </td>
+                  <td className="px-8 py-8 text-slate-600 font-black italic tracking-tight">{e.expense_date}</td>
+                  <td className="px-8 py-8">
+                     <span className="font-black text-red-600 italic text-xl tracking-tight">{(e.amount || 0).toLocaleString()}</span>
+                  </td>
+                  <td className="px-8 py-8 text-right">
+                    <div className="flex items-center justify-end gap-4 opacity-0 group-hover:opacity-100 transition-all">
+                      <button onClick={() => { setEditingExpense(e); setFormData({ expense_id: e.expense_id, expense_date: e.expense_date || '', category: e.category || 'fuel', amount: e.amount?.toString() || '', notes: e.notes || '', vehicle_id: e.vehicle_id || '', receipt_number: e.receipt_number || '' }); setShowModal(true) }} className="p-3 bg-sky-50 text-sky-600 rounded-xl hover:bg-sky-900 hover:text-white transition-all">✏️</button>
+                      <button onClick={() => handleDelete(e.id)} className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-500 hover:text-white transition-all">🗑️</button>
+                    </div>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
+      {/* Burn Entry Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-slate-800">{editingExpense ? 'Edit Expense' : 'Add Expense'}</h2>
-              <button onClick={() => { setShowModal(false); setEditingExpense(null); resetForm() }} className="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Expense ID *</label>
-                  <input required className="input" placeholder="E1401" value={formData.expense_id} onChange={e => setFormData({...formData, expense_id: e.target.value})} />
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-3xl flex items-center justify-center z-50 p-6">
+          <div className="bg-white rounded-[4rem] shadow-2xl w-full max-w-2xl p-14 border border-white/50 relative overflow-y-auto max-h-[90vh]">
+            <button onClick={() => { setShowModal(false); setEditingExpense(null); resetForm() }} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900 text-4xl transition-all font-black">✕</button>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2 leading-none">{editingExpense ? 'Modify Ledger' : 'Initialize Burn'}</h2>
+            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-12 italic">Financial outflow identification</p>
+            
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Entry ID *</label>
+                  <input required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner uppercase" placeholder="E-1400" value={formData.expense_id} onChange={e => setFormData({...formData, expense_id: e.target.value})} />
                 </div>
-                <div>
-                  <label className="label">Date</label>
-                  <input type="date" className="input" value={formData.expense_date} onChange={e => setFormData({...formData, expense_date: e.target.value})} />
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Event Timestamp</label>
+                  <input type="date" className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" value={formData.expense_date} onChange={e => setFormData({...formData, expense_date: e.target.value})} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Category *</label>
-                  <select required className="input" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                    {categories.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Category Logic *</label>
+                  <select required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                    {categories.map(c => <option key={c} value={c}>{c.toUpperCase()}</option>)}
                   </select>
                 </div>
-                <div>
-                  <label className="label">Amount (PKR)</label>
-                  <input type="number" className="input" placeholder="12000" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} />
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Valuation (PKR) *</label>
+                  <input required type="number" className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="50,000" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} />
                 </div>
               </div>
-              <div>
-                <label className="label">Notes</label>
-                <textarea className="input" rows={2} placeholder="Diesel refill" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} />
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Asset Identification (Optional)</label>
+                <select className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
+                  <option value="">General House Expense</option>
+                  {vehicles.map(v => <option key={v.id} value={v.vehicle_id}>{v.vehicle_id} ({v.registration_no})</option>)}
+                </select>
               </div>
-              <div className="flex justify-end space-x-3 pt-4">
-                <button type="button" onClick={() => { setShowModal(false); setEditingExpense(null); resetForm() }} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary">{editingExpense ? 'Update' : 'Add'} Expense</button>
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Event Remarks</label>
+                <textarea className="w-full h-32 bg-slate-50 border-2 border-slate-50 rounded-3xl px-6 py-4 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="Describe the burn event..." value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} />
               </div>
+
+              <button type="submit" className="w-full py-8 bg-slate-900 text-white rounded-[2rem] font-black text-xl shadow-2xl hover:bg-red-500 transition-all active:scale-[0.98] uppercase tracking-[0.2em] italic leading-none">
+                 Commit Burn Entry
+              </button>
             </form>
           </div>
         </div>

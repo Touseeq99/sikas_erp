@@ -19,6 +19,7 @@ interface Vehicle {
   id: string
   vehicle_id: string
   registration_no: string
+  is_outsourced?: boolean
 }
 
 export default function FuelTrackingPage() {
@@ -30,7 +31,7 @@ export default function FuelTrackingPage() {
   const [formData, setFormData] = useState({
     fuel_id: '',
     vehicle_id: '',
-    fill_date: '',
+    fill_date: new Date().toISOString().split('T')[0],
     fuel_liters: '',
     cost: '',
     odometer_reading: '',
@@ -48,167 +49,205 @@ export default function FuelTrackingPage() {
   }, [])
 
   const loadData = async () => {
-    const [recordsRes, vehiclesRes] = await Promise.all([
-      supabase.from('fuel_tracking').select('*').order('fill_date', { ascending: false }),
-      supabase.from('vehicles').select('*').order('vehicle_id'),
-    ])
-    setRecords(recordsRes.data || [])
-    setVehicles(vehiclesRes.data || [])
-    setLoading(false)
+    try {
+      const [recordsRes, vehiclesRes] = await Promise.all([
+        supabase.from('fuel_tracking').select('*').order('fill_date', { ascending: false }),
+        supabase.from('vehicles').select('id, vehicle_id, registration_no, is_outsourced').order('vehicle_id'),
+      ])
+      setRecords(recordsRes.data || [])
+      setVehicles(vehiclesRes.data || [])
+    } catch (error: any) {
+      console.error('Error loading fuel data:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const payload = { ...formData, fuel_liters: parseFloat(formData.fuel_liters) || 0, cost: parseFloat(formData.cost) || 0 }
-    
-    if (editingRecord) {
-      await supabase.from('fuel_tracking').update(payload).eq('id', editingRecord.id)
-    } else {
-      await supabase.from('fuel_tracking').insert(payload)
+    const payload = { 
+      ...formData, 
+      fuel_liters: parseFloat(formData.fuel_liters) || 0, 
+      cost: parseFloat(formData.cost) || 0,
+      odometer_reading: parseFloat(formData.odometer_reading) || 0
     }
     
-    setShowModal(false)
-    setEditingRecord(null)
-    resetForm()
-    loadData()
+    try {
+      if (editingRecord) {
+        await supabase.from('fuel_tracking').update(payload).eq('id', editingRecord.id)
+      } else {
+        await supabase.from('fuel_tracking').insert(payload)
+      }
+      setShowModal(false)
+      setEditingRecord(null)
+      resetForm()
+      loadData()
+      alert('Propellant manifest updated.')
+    } catch (error: any) {
+      alert('Failed: ' + error.message)
+    }
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this record?')) {
-      await supabase.from('fuel_tracking').delete().eq('id', id)
-      loadData()
+    if (confirm('De-register this propellant log?')) {
+      try {
+        await supabase.from('fuel_tracking').delete().eq('id', id)
+        loadData()
+      } catch (error: any) {
+        alert('Action failed: ' + error.message)
+      }
     }
   }
 
   const resetForm = () => {
-    setFormData({ fuel_id: '', vehicle_id: '', fill_date: '', fuel_liters: '', cost: '', odometer_reading: '', fuel_station: '', receipt_number: '' })
-  }
-
-  const getVehicleInfo = (vehicleId: string) => {
-    const vehicle = vehicles.find(v => v.vehicle_id === vehicleId)
-    return vehicle ? `${vehicle.vehicle_id} (${vehicle.registration_no})` : vehicleId
+    setFormData({ 
+      fuel_id: '', vehicle_id: '', fill_date: new Date().toISOString().split('T')[0], 
+      fuel_liters: '', cost: '', odometer_reading: '', fuel_station: '', receipt_number: '' 
+    })
   }
 
   const totalCost = records.reduce((sum, r) => sum + (r.cost || 0), 0)
   const totalLiters = records.reduce((sum, r) => sum + (r.fuel_liters || 0), 0)
 
   if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="animate-spin rounded-full h-12 w-12 border-4 border-sky-500 border-t-transparent"></div>
+    <div className="flex items-center justify-center h-[60vh]">
+      <div className="w-16 h-16 border-4 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
     </div>
   )
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-10 pb-20">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">⛽ Fuel Tracking</h1>
-          <p className="text-slate-500 mt-1">Track fuel consumption</p>
+          <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Fuel <span className="text-amber-500">Node</span></h1>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Propellant Consumption Flow</p>
         </div>
-        <button onClick={() => { setEditingRecord(null); resetForm(); setShowModal(true) }} className="btn btn-primary flex items-center gap-2">
-          <span>+</span> Add Fuel Entry
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="card">
-          <p className="text-sm text-slate-500">Total Fuel Cost</p>
-          <p className="text-2xl font-bold text-slate-800">PKR {totalCost.toLocaleString()}</p>
-        </div>
-        <div className="card">
-          <p className="text-sm text-slate-500">Total Liters</p>
-          <p className="text-2xl font-bold text-slate-800">{totalLiters.toLocaleString()} L</p>
-        </div>
-        <div className="card">
-          <p className="text-sm text-slate-500">Avg Cost/Liter</p>
-          <p className="text-2xl font-bold text-slate-800">PKR {totalLiters > 0 ? Math.round(totalCost / totalLiters).toLocaleString() : 0}</p>
+        <div className="flex items-center gap-4 bg-white p-3 rounded-[2rem] shadow-sm border border-slate-100">
+          <button onClick={() => { setEditingRecord(null); resetForm(); setShowModal(true) }} className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs hover:bg-amber-500 transition-all shadow-xl shadow-slate-200 uppercase tracking-widest italic">
+            + Log Consumption
+          </button>
         </div>
       </div>
 
-      <div className="card overflow-hidden p-0">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
-            <tr>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Fuel ID</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Vehicle</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Date</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Liters</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Cost (PKR)</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 bg-white">
-            {records.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                  <div className="text-4xl mb-2">⛽</div>
-                  No fuel records found.
-                </td>
+      {/* Hero Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="bg-slate-900 rounded-[4rem] p-12 text-white shadow-2xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2"></div>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">Aggregated Propellant Burn</p>
+          <p className="text-5xl font-black italic tracking-tighter text-amber-400">PKR {(totalCost/1000).toFixed(0)}K</p>
+        </div>
+        <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm relative overflow-hidden group">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Volume Flow</p>
+          <p className="text-5xl font-black text-slate-900 italic uppercase">{totalLiters.toLocaleString()} <span className="text-xl text-slate-400">Liters</span></p>
+        </div>
+        <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm relative overflow-hidden group">
+           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Efficiency Index</p>
+           <p className="text-4xl font-black text-emerald-500 italic uppercase">Optimized</p>
+        </div>
+      </div>
+
+      {/* Persistence Table UI */}
+      <div className="bg-white rounded-[4rem] border border-slate-100 shadow-sm overflow-hidden p-6">
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead>
+              <tr className="border-b border-slate-50">
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Timestamp</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Vehicle Asset</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Volume / Burn</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Node (Station)</th>
+                <th className="px-8 py-8 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Operations</th>
               </tr>
-            ) : (
-              records.map((r) => (
-                <tr key={r.id} className="hover:bg-sky-50/50 transition-colors">
-                  <td className="px-6 py-4 font-semibold text-slate-800">{r.fuel_id}</td>
-                  <td className="px-6 py-4 text-slate-600">{getVehicleInfo(r.vehicle_id)}</td>
-                  <td className="px-6 py-4 text-slate-600">{r.fill_date}</td>
-                  <td className="px-6 py-4 text-slate-600">{r.fuel_liters} L</td>
-                  <td className="px-6 py-4 text-slate-600 font-medium">{r.cost?.toLocaleString()}</td>
-                  <td className="px-6 py-4">
-                    <button onClick={() => { setEditingRecord(r); setFormData({ fuel_id: r.fuel_id, vehicle_id: r.vehicle_id, fill_date: r.fill_date || '', fuel_liters: r.fuel_liters?.toString() || '', cost: r.cost?.toString() || '', odometer_reading: r.odometer_reading?.toString() || '', fuel_station: r.fuel_station || '', receipt_number: r.receipt_number || '' }); setShowModal(true) }} className="text-sky-600 hover:text-sky-800 font-medium mr-4">Edit</button>
-                    <button onClick={() => handleDelete(r.id)} className="text-red-600 hover:text-red-800 font-medium">Delete</button>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {records.map((r) => (
+                <tr key={r.id} className="group hover:bg-slate-50/50 transition-all">
+                  <td className="px-8 py-8 font-black text-slate-900 italic tracking-tighter text-2xl leading-none">{r.fill_date}</td>
+                  <td className="px-8 py-8 font-black text-slate-800 uppercase tracking-tight text-xl italic">{r.vehicle_id}</td>
+                  <td className="px-8 py-8">
+                     <span className="font-black text-slate-800 uppercase tracking-tight text-sm block leading-none">{r.fuel_liters} LITERS</span>
+                     <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mt-2 block">VALUATION: {(r.cost || 0).toLocaleString()}</span>
+                  </td>
+                  <td className="px-8 py-8">
+                    <span className="inline-flex px-4 py-1.5 bg-slate-100 text-slate-950 rounded-full text-[10px] font-black uppercase tracking-widest italic transition-all group-hover:bg-slate-900 group-hover:text-white">
+                      {r.fuel_station || 'Unknown HQ'}
+                    </span>
+                  </td>
+                  <td className="px-8 py-8 text-right">
+                    <div className="flex items-center justify-end gap-4 opacity-0 group-hover:opacity-100 transition-all">
+                      <button onClick={() => { 
+                        setEditingRecord(r); 
+                        setFormData({ 
+                          fuel_id: r.fuel_id, vehicle_id: r.vehicle_id, fill_date: r.fill_date || '', 
+                          fuel_liters: r.fuel_liters?.toString() || '', cost: r.cost?.toString() || '', 
+                          odometer_reading: r.odometer_reading?.toString() || '', fuel_station: r.fuel_station || '', 
+                          receipt_number: r.receipt_number || '' 
+                        }); 
+                        setShowModal(true) 
+                      }} className="p-3 bg-sky-50 text-sky-600 rounded-xl hover:bg-sky-900 hover:text-white transition-all">✏️</button>
+                      <button onClick={() => handleDelete(r.id)} className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-500 hover:text-white transition-all">🗑️</button>
+                    </div>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
+      {/* Fuel Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-slate-800">{editingRecord ? 'Edit Fuel' : 'Add Fuel Entry'}</h2>
-              <button onClick={() => { setShowModal(false); setEditingRecord(null); resetForm() }} className="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Fuel ID *</label>
-                  <input required className="input" placeholder="FT901" value={formData.fuel_id} onChange={e => setFormData({...formData, fuel_id: e.target.value})} />
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-3xl flex items-center justify-center z-50 p-6">
+          <div className="bg-white rounded-[4rem] shadow-2xl w-full max-w-2xl p-14 border border-white/50 relative overflow-y-auto max-h-[90vh]">
+            <button onClick={() => { setShowModal(false); setEditingRecord(null); resetForm() }} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900 text-4xl font-black">✕</button>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">{editingRecord ? 'Recalibrate' : 'Log Propellant'}</h2>
+            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-12">Flow identification protocol</p>
+            
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Entry Key *</label>
+                  <input required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="F-900" value={formData.fuel_id} onChange={e => setFormData({...formData, fuel_id: e.target.value})} />
                 </div>
-                <div>
-                  <label className="label">Vehicle *</label>
-                  <select required className="input" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
-                    <option value="">Select Vehicle</option>
-                    {vehicles.map(v => <option key={v.id} value={v.vehicle_id}>{v.vehicle_id} - {v.registration_no}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Fill Date</label>
-                  <input type="date" className="input" value={formData.fill_date} onChange={e => setFormData({...formData, fill_date: e.target.value})} />
-                </div>
-                <div>
-                  <label className="label">Fuel Station</label>
-                  <input className="input" placeholder="Shell" value={formData.fuel_station} onChange={e => setFormData({...formData, fuel_station: e.target.value})} />
+                <div className="space-y-3">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Vehicle Asset *</label>
+                   <select required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
+                     <option value="">Select ID...</option>
+                     {vehicles.map(v => (
+                       <option key={v.id} value={v.vehicle_id}>
+                         {v.vehicle_id} - {v.registration_no}
+                       </option>
+                     ))}
+                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Liters</label>
-                  <input type="number" className="input" placeholder="80" value={formData.fuel_liters} onChange={e => setFormData({...formData, fuel_liters: e.target.value})} />
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Timestamp</label>
+                  <input type="date" className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" value={formData.fill_date} onChange={e => setFormData({...formData, fill_date: e.target.value})} />
                 </div>
-                <div>
-                  <label className="label">Cost (PKR)</label>
-                  <input type="number" className="input" placeholder="12000" value={formData.cost} onChange={e => setFormData({...formData, cost: e.target.value})} />
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Volume (Liters) *</label>
+                  <input required type="number" className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="100" value={formData.fuel_liters} onChange={e => setFormData({...formData, fuel_liters: e.target.value})} />
                 </div>
               </div>
-              <div className="flex justify-end space-x-3 pt-4">
-                <button type="button" onClick={() => { setShowModal(false); setEditingRecord(null); resetForm() }} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary">{editingRecord ? 'Update' : 'Add'} Entry</button>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Valuation (PKR) *</label>
+                  <input required type="number" className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="50,000" value={formData.cost} onChange={e => setFormData({...formData, cost: e.target.value})} />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Supply Node (Station)</label>
+                  <input className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="Shell / PSO" value={formData.fuel_station} onChange={e => setFormData({...formData, fuel_station: e.target.value})} />
+                </div>
               </div>
+
+              <button type="submit" className="w-full py-8 bg-slate-900 text-white rounded-[2rem] font-black text-xl shadow-2xl hover:bg-amber-500 transition-all active:scale-[0.98] uppercase tracking-[0.2em] italic">
+                 Commit Consumption
+              </button>
             </form>
           </div>
         </div>

@@ -29,7 +29,7 @@ export default function MaintenancePage() {
   const [formData, setFormData] = useState({
     maintenance_id: '',
     vehicle_id: '',
-    maintenance_date: '',
+    maintenance_date: new Date().toISOString().split('T')[0],
     cost: '',
     maintenance_type: '',
     description: '',
@@ -58,151 +58,170 @@ export default function MaintenancePage() {
     e.preventDefault()
     const payload = { ...formData, cost: parseFloat(formData.cost) || 0 }
     
-    if (editingRecord) {
-      await supabase.from('maintenance_records').update(payload).eq('id', editingRecord.id)
-    } else {
-      await supabase.from('maintenance_records').insert(payload)
+    try {
+      if (editingRecord) {
+        await supabase.from('maintenance_records').update(payload).eq('id', editingRecord.id)
+      } else {
+        await supabase.from('maintenance_records').insert(payload)
+      }
+      setShowModal(false)
+      setEditingRecord(null)
+      resetForm()
+      loadData()
+      alert('Asset health manifest committed.')
+    } catch (error: any) {
+      alert('Failed: ' + error.message)
     }
-    
-    setShowModal(false)
-    setEditingRecord(null)
-    resetForm()
-    loadData()
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this record?')) {
-      await supabase.from('maintenance_records').delete().eq('id', id)
-      loadData()
+    if (confirm('De-register this maintenance event?')) {
+      try {
+        await supabase.from('maintenance_records').delete().eq('id', id)
+        loadData()
+      } catch (error: any) {
+        alert('Action failed: ' + error.message)
+      }
     }
   }
 
   const resetForm = () => {
-    setFormData({ maintenance_id: '', vehicle_id: '', maintenance_date: '', cost: '', maintenance_type: '', description: '' })
-  }
-
-  const getVehicleInfo = (vehicleId: string) => {
-    const vehicle = vehicles.find(v => v.vehicle_id === vehicleId)
-    return vehicle ? `${vehicle.vehicle_id} (${vehicle.registration_no})` : vehicleId
+    setFormData({ 
+      maintenance_id: '', vehicle_id: '', 
+      maintenance_date: new Date().toISOString().split('T')[0], cost: '', 
+      maintenance_type: '', description: '' 
+    })
   }
 
   const totalCost = records.reduce((sum, r) => sum + (r.cost || 0), 0)
 
   if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="animate-spin rounded-full h-12 w-12 border-4 border-sky-500 border-t-transparent"></div>
+    <div className="flex items-center justify-center h-[60vh]">
+      <div className="w-16 h-16 border-4 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
     </div>
   )
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-10 pb-20">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">🔧 Maintenance</h1>
-          <p className="text-slate-500 mt-1">Track vehicle maintenance records</p>
+          <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Fleet <span className="text-sky-500">Care</span></h1>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Asset Maintenance Manifest</p>
         </div>
-        <button onClick={() => { setEditingRecord(null); resetForm(); setShowModal(true) }} className="btn btn-primary flex items-center gap-2">
-          <span>+</span> Add Record
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="card">
-          <p className="text-sm text-slate-500">Total Records</p>
-          <p className="text-2xl font-bold text-slate-800">{records.length}</p>
-        </div>
-        <div className="card">
-          <p className="text-sm text-slate-500">Total Cost</p>
-          <p className="text-2xl font-bold text-slate-800">PKR {totalCost.toLocaleString()}</p>
-        </div>
-        <div className="card">
-          <p className="text-sm text-slate-500">This Month</p>
-          <p className="text-2xl font-bold text-slate-800">{records.filter(r => r.maintenance_date?.startsWith(new Date().toISOString().slice(0, 7))).length}</p>
+        <div className="flex items-center gap-4 bg-white p-3 rounded-[2rem] shadow-sm border border-slate-100">
+          <button onClick={() => { setEditingRecord(null); resetForm(); setShowModal(true) }} className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs hover:bg-sky-500 transition-all shadow-xl shadow-slate-200 uppercase tracking-widest italic">
+            + Schedule Event
+          </button>
         </div>
       </div>
 
-      <div className="card overflow-hidden p-0">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
-            <tr>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">ID</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Vehicle</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Date</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Type</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Cost (PKR)</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 bg-white">
-            {records.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                  <div className="text-4xl mb-2">🔧</div>
-                  No maintenance records found.
-                </td>
+      {/* Hero Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="bg-slate-900 rounded-[4rem] p-12 text-white shadow-2xl relative overflow-hidden group transition-all">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2"></div>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">Aggregated Health Expense</p>
+          <p className="text-5xl font-black italic tracking-tighter text-emerald-400">PKR {(totalCost/1000).toFixed(0)}K</p>
+        </div>
+        <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm relative overflow-hidden">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Total Health Logs</p>
+          <p className="text-5xl font-black text-slate-900 italic tracking-tighter">{records.length}</p>
+        </div>
+        <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm relative overflow-hidden">
+           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Operational Uptime</p>
+           <p className="text-4xl font-black text-sky-500 italic uppercase">Stabilized</p>
+        </div>
+      </div>
+
+      {/* Persistence Table UI */}
+      <div className="bg-white rounded-[4rem] border border-slate-100 shadow-sm overflow-hidden p-6">
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead>
+              <tr className="border-b border-slate-50">
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Protocol ID</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Vehicle Asset</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Timestamp / Logic</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Valuation (PKR)</th>
+                <th className="px-8 py-8 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Operations</th>
               </tr>
-            ) : (
-              records.map((r) => (
-                <tr key={r.id} className="hover:bg-sky-50/50 transition-colors">
-                  <td className="px-6 py-4 font-semibold text-slate-800">{r.maintenance_id}</td>
-                  <td className="px-6 py-4 text-slate-600">{getVehicleInfo(r.vehicle_id)}</td>
-                  <td className="px-6 py-4 text-slate-600">{r.maintenance_date}</td>
-                  <td className="px-6 py-4 text-slate-600">{r.maintenance_type}</td>
-                  <td className="px-6 py-4 text-slate-600 font-medium">{r.cost?.toLocaleString()}</td>
-                  <td className="px-6 py-4">
-                    <button onClick={() => { setEditingRecord(r); setFormData({ maintenance_id: r.maintenance_id, vehicle_id: r.vehicle_id, maintenance_date: r.maintenance_date || '', cost: r.cost?.toString() || '', maintenance_type: r.maintenance_type || '', description: r.description || '' }); setShowModal(true) }} className="text-sky-600 hover:text-sky-800 font-medium mr-4">Edit</button>
-                    <button onClick={() => handleDelete(r.id)} className="text-red-600 hover:text-red-800 font-medium">Delete</button>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {records.map((r) => (
+                <tr key={r.id} className="group hover:bg-slate-50/50 transition-all">
+                  <td className="px-8 py-8 font-black text-slate-900 italic tracking-tighter text-2xl leading-none">{r.maintenance_id}</td>
+                  <td className="px-8 py-8 font-black text-slate-800 uppercase tracking-tight text-xl italic">{r.vehicle_id}</td>
+                  <td className="px-8 py-8">
+                     <span className="font-black text-slate-800 uppercase tracking-tight text-sm block leading-none">{r.maintenance_date}</span>
+                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 block">{r.maintenance_type}</span>
+                  </td>
+                  <td className="px-8 py-8">
+                     <span className="font-black text-red-600 italic text-xl tracking-tight">{(r.cost || 0).toLocaleString()}</span>
+                  </td>
+                  <td className="px-8 py-8 text-right">
+                    <div className="flex items-center justify-end gap-4 opacity-0 group-hover:opacity-100 transition-all">
+                      <button onClick={() => { setEditingRecord(r); setFormData({ maintenance_id: r.maintenance_id, vehicle_id: r.vehicle_id, maintenance_date: r.maintenance_date || '', cost: r.cost?.toString() || '', maintenance_type: r.maintenance_type || '', description: r.description || '' }); setShowModal(true) }} className="p-3 bg-sky-50 text-sky-600 rounded-xl hover:bg-sky-900 hover:text-white transition-all">✏️</button>
+                      <button onClick={() => handleDelete(r.id)} className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-500 hover:text-white transition-all">🗑️</button>
+                    </div>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
+      {/* Maintenance Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-slate-800">{editingRecord ? 'Edit Maintenance' : 'Add Maintenance Record'}</h2>
-              <button onClick={() => { setShowModal(false); setEditingRecord(null); resetForm() }} className="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Maintenance ID *</label>
-                  <input required className="input" placeholder="M801" value={formData.maintenance_id} onChange={e => setFormData({...formData, maintenance_id: e.target.value})} />
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-3xl flex items-center justify-center z-50 p-6">
+          <div className="bg-white rounded-[4rem] shadow-2xl w-full max-w-2xl p-14 border border-white/50 relative overflow-y-auto max-h-[90vh]">
+            <button onClick={() => { setShowModal(false); setEditingRecord(null); resetForm() }} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900 text-4xl font-black">✕</button>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">{editingRecord ? 'Recalibrate' : 'Schedule Health'}</h2>
+            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-12">Asset lifecycle protocol</p>
+            
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Manifest ID *</label>
+                  <input required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="M-800" value={formData.maintenance_id} onChange={e => setFormData({...formData, maintenance_id: e.target.value})} />
                 </div>
-                <div>
-                  <label className="label">Vehicle *</label>
-                  <select required className="input" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
-                    <option value="">Select Vehicle</option>
-                    {vehicles.map(v => <option key={v.id} value={v.vehicle_id}>{v.vehicle_id} - {v.registration_no}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Date</label>
-                  <input type="date" className="input" value={formData.maintenance_date} onChange={e => setFormData({...formData, maintenance_date: e.target.value})} />
-                </div>
-                <div>
-                  <label className="label">Cost (PKR)</label>
-                  <input type="number" className="input" placeholder="8000" value={formData.cost} onChange={e => setFormData({...formData, cost: e.target.value})} />
+                <div className="space-y-3">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Vehicle Asset *</label>
+                   <select required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
+                     <option value="">Select ID...</option>
+                     {vehicles.map(v => (
+                       <option key={v.id} value={v.vehicle_id}>
+                         {v.vehicle_id} - {v.registration_no}
+                       </option>
+                     ))}
+                   </select>
                 </div>
               </div>
-              <div>
-                <label className="label">Type</label>
-                <input className="input" placeholder="Brake service" value={formData.maintenance_type} onChange={e => setFormData({...formData, maintenance_type: e.target.value})} />
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Timestamp</label>
+                  <input type="date" className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" value={formData.maintenance_date} onChange={e => setFormData({...formData, maintenance_date: e.target.value})} />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Valuation (PKR) *</label>
+                  <input required type="number" className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="10,000" value={formData.cost} onChange={e => setFormData({...formData, cost: e.target.value})} />
+                </div>
               </div>
-              <div>
-                <label className="label">Description</label>
-                <textarea className="input" rows={2} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Logic Type</label>
+                <input required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="Engine Service / Brakes" value={formData.maintenance_type} onChange={e => setFormData({...formData, maintenance_type: e.target.value})} />
               </div>
-              <div className="flex justify-end space-x-3 pt-4">
-                <button type="button" onClick={() => { setShowModal(false); setEditingRecord(null); resetForm() }} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary">{editingRecord ? 'Update' : 'Add'} Record</button>
+
+               <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Manifest Remarks</label>
+                <textarea className="w-full h-32 bg-slate-50 border-2 border-slate-50 rounded-3xl px-6 py-4 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="Describe the health event..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
               </div>
+
+              <button type="submit" className="w-full py-8 bg-slate-900 text-white rounded-[2rem] font-black text-xl shadow-2xl hover:bg-sky-500 transition-all active:scale-[0.98] uppercase tracking-[0.2em] italic">
+                 Commit Health Event
+              </button>
             </form>
           </div>
         </div>

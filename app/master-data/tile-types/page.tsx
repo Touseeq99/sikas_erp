@@ -2,7 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/app/lib/supabase'
-import type { TileType } from '@/app/types/database'
+
+interface TileType {
+  id: string
+  tile_name: string
+  size_inches?: string
+  pieces_per_box?: number
+  weight_per_box_kg?: number
+  is_active?: boolean
+}
 
 export default function TileTypesPage() {
   const [tileTypes, setTileTypes] = useState<TileType[]>([])
@@ -39,16 +47,20 @@ export default function TileTypesPage() {
       weight_per_box_kg: parseFloat(formData.weight_per_box_kg) || 0,
     }
     
-    if (editingTile) {
-      await supabase.from('tile_types').update(payload).eq('id', editingTile.id)
-    } else {
-      await supabase.from('tile_types').insert(payload)
+    try {
+      if (editingTile) {
+        await supabase.from('tile_types').update(payload).eq('id', editingTile.id)
+      } else {
+        await supabase.from('tile_types').insert(payload)
+      }
+      setShowModal(false)
+      setEditingTile(null)
+      setFormData({ tile_name: '', size_inches: '', pieces_per_box: '', weight_per_box_kg: '' })
+      loadTileTypes()
+      alert('Asset class calibrated.')
+    } catch (err: any) {
+      alert('Failed: ' + err.message)
     }
-    
-    setShowModal(false)
-    setEditingTile(null)
-    setFormData({ tile_name: '', size_inches: '', pieces_per_box: '', weight_per_box_kg: '' })
-    loadTileTypes()
   }
 
   const handleEdit = (tile: TileType) => {
@@ -63,82 +75,123 @@ export default function TileTypesPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure?')) {
-      await supabase.from('tile_types').delete().eq('id', id)
-      loadTileTypes()
+    if (confirm('De-register this asset class?')) {
+      try {
+        await supabase.from('tile_types').delete().eq('id', id)
+        loadTileTypes()
+      } catch (err: any) {
+        alert('Action failed: ' + err.message)
+      }
     }
   }
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div></div>
+  if (loading) return (
+    <div className="flex items-center justify-center h-[60vh]">
+      <div className="w-16 h-16 border-4 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  )
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Tile Types</h1>
-        <button onClick={() => setShowModal(true)} className="btn btn-primary">+ Add Tile Type</button>
+    <div className="space-y-10 pb-20">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+        <div>
+          <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Asset <span className="text-sky-500">Classes</span></h1>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Inventory Specification Protocol</p>
+        </div>
+        <div className="flex items-center gap-4 bg-white p-3 rounded-[2rem] shadow-sm border border-slate-100">
+          <button onClick={() => { setEditingTile(null); setShowModal(true) }} className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs hover:bg-sky-500 transition-all shadow-xl shadow-slate-200 uppercase tracking-widest italic">
+            + Provision Asset Class
+          </button>
+        </div>
       </div>
 
-      <div className="card overflow-hidden p-0">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="table-header">
-            <tr>
-              <th className="px-6 py-3">Tile Name</th>
-              <th className="px-6 py-3">Size</th>
-              <th className="px-6 py-3">Pieces/Box</th>
-              <th className="px-6 py-3">Weight/Box (kg)</th>
-              <th className="px-6 py-3">Status</th>
-              <th className="px-6 py-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {tileTypes.map((t) => (
-              <tr key={t.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 font-medium">{t.tile_name}</td>
-                <td className="px-6 py-4">{t.size_inches}</td>
-                <td className="px-6 py-4">{t.pieces_per_box}</td>
-                <td className="px-6 py-4">{t.weight_per_box_kg}</td>
-                <td className="px-6 py-4">
-                  <span className={`status-badge ${t.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                    {t.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <button onClick={() => handleEdit(t)} className="text-primary-600 hover:text-primary-900 mr-3">Edit</button>
-                  <button onClick={() => handleDelete(t.id)} className="text-red-600 hover:text-red-900">Delete</button>
-                </td>
+      {/* Hero Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="bg-slate-900 rounded-[4rem] p-12 text-white shadow-2xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-sky-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2"></div>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">Total Registered Specs</p>
+          <p className="text-5xl font-black italic tracking-tighter">{tileTypes.length}<span className="text-sky-500 text-2xl uppercase ml-2 tracking-widest font-black">Variants</span></p>
+        </div>
+        <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm relative overflow-hidden group">
+           <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/5 rounded-full blur-[40px] -translate-y-1/2 translate-x-1/2"></div>
+           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Operational Load</p>
+           <p className="text-4xl font-black text-emerald-500 italic uppercase">Validated</p>
+        </div>
+      </div>
+
+      {/* Table UI */}
+      <div className="bg-white rounded-[4rem] border border-slate-100 shadow-sm overflow-hidden p-6">
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead>
+              <tr className="border-b border-slate-50">
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Specification</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Physical Dimensions</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Box Density</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Unit Mass</th>
+                <th className="px-8 py-8 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Operations</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {tileTypes.map((t) => (
+                <tr key={t.id} className="group hover:bg-slate-50/50 transition-all">
+                  <td className="px-8 py-8 font-black text-slate-900 italic tracking-tighter text-2xl leading-none uppercase">{t.tile_name}</td>
+                  <td className="px-8 py-8 font-black text-slate-800 uppercase tracking-tight text-xl italic">{t.size_inches || 'N/A'}</td>
+                  <td className="px-8 py-8">
+                     <span className="font-black text-slate-800 uppercase tracking-tight text-sm block leading-none">{t.pieces_per_box} Units</span>
+                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 block">Per Container</span>
+                  </td>
+                  <td className="px-8 py-8">
+                    <span className="inline-flex px-4 py-1.5 bg-slate-100 text-slate-900 rounded-full text-[10px] font-black uppercase tracking-widest italic">
+                      {t.weight_per_box_kg} kg
+                    </span>
+                  </td>
+                  <td className="px-8 py-8 text-right">
+                    <div className="flex items-center justify-end gap-4 opacity-0 group-hover:opacity-100 transition-all">
+                      <button onClick={() => handleEdit(t)} className="p-3 bg-sky-50 text-sky-600 rounded-xl hover:bg-sky-900 hover:text-white transition-all">✏️</button>
+                      <button onClick={() => handleDelete(t.id)} className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-500 hover:text-white transition-all">🗑️</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">{editingTile ? 'Edit Tile Type' : 'Add Tile Type'}</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="label">Tile Name *</label>
-                <input required className="input" value={formData.tile_name} onChange={e => setFormData({...formData, tile_name: e.target.value})} />
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-3xl flex items-center justify-center z-50 p-6">
+          <div className="bg-white rounded-[4rem] shadow-2xl w-full max-w-lg p-14 border border-white/50 relative overflow-y-auto max-h-[90vh]">
+            <button onClick={() => { setShowModal(false); setEditingTile(null) }} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900 text-4xl font-black transition-all">✕</button>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">{editingTile ? 'Modify Spec' : 'Provision Spec'}</h2>
+            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-12">Asset class identity protocol</p>
+            
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Manifest Name *</label>
+                <input required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="E-TILES GOLD" value={formData.tile_name} onChange={e => setFormData({...formData, tile_name: e.target.value})} />
               </div>
-              <div>
-                <label className="label">Size (inches)</label>
-                <input className="input" value={formData.size_inches} onChange={e => setFormData({...formData, size_inches: e.target.value})} placeholder="e.g. 12x12" />
+
+               <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Dimensions (Inches)</label>
+                <input className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="12x24" value={formData.size_inches} onChange={e => setFormData({...formData, size_inches: e.target.value})} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Pieces per Box</label>
-                  <input type="number" className="input" value={formData.pieces_per_box} onChange={e => setFormData({...formData, pieces_per_box: e.target.value})} />
+
+              <div className="grid grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Count/Box</label>
+                  <input type="number" className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="10" value={formData.pieces_per_box} onChange={e => setFormData({...formData, pieces_per_box: e.target.value})} />
                 </div>
-                <div>
-                  <label className="label">Weight per Box (kg)</label>
-                  <input type="number" step="0.01" className="input" value={formData.weight_per_box_kg} onChange={e => setFormData({...formData, weight_per_box_kg: e.target.value})} />
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Mass/Box (kg)</label>
+                  <input type="number" step="0.01" className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="25.5" value={formData.weight_per_box_kg} onChange={e => setFormData({...formData, weight_per_box_kg: e.target.value})} />
                 </div>
               </div>
-              <div className="flex justify-end space-x-3 pt-4">
-                <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary">{editingTile ? 'Update' : 'Add'}</button>
-              </div>
+
+              <button type="submit" className="w-full py-8 bg-slate-900 text-white rounded-[2rem] font-black text-xl shadow-2xl hover:bg-sky-500 transition-all active:scale-[0.98] uppercase tracking-[0.2em] italic">
+                 Commit Asset Spec
+              </button>
             </form>
           </div>
         </div>

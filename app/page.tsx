@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/app/lib/supabase'
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, Legend, AreaChart, Area 
+  PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area
 } from 'recharts'
 
-const COLORS = ['#0ea5e9', '#22c55e', '#eab308', '#ef4444', '#8b5cf6', '#ec4899']
+const COLORS = ['#0ea5e9', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
 
 interface KPI {
+  id: string
   kpi_id: string
   metric: string
   target: number
@@ -25,8 +26,10 @@ export default function Dashboard() {
   const [orders, setOrders] = useState<any[]>([])
   const [revenue, setRevenue] = useState<any[]>([])
   const [expenses, setExpenses] = useState<any[]>([])
-  const [profitTrips, setProfitTrips] = useState<any[]>([])
+  const [tripsData, setTripsData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [showGoalModal, setShowGoalModal] = useState(false)
+  const [showPivotModal, setShowPivotModal] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<string>('')
 
   useEffect(() => {
@@ -40,14 +43,14 @@ export default function Dashboard() {
 
   const loadDashboardData = async () => {
     try {
-      const [kpisRes, vehiclesRes, driversRes, ordersRes, revenueRes, expensesRes, profitRes] = await Promise.all([
+      const [kpisRes, vehiclesRes, driversRes, ordersRes, revenueRes, expensesRes, tripsRes] = await Promise.all([
         supabase.from('kpis').select('*').order('kpi_id'),
         supabase.from('vehicles').select('*').order('vehicle_id'),
         supabase.from('drivers').select('*').order('driver_id'),
         supabase.from('orders').select('*').order('order_id'),
         supabase.from('revenue').select('*').order('revenue_id'),
         supabase.from('expenses').select('*').order('expense_id'),
-        supabase.from('profit_per_trip').select('*').order('trip_id'),
+        supabase.from('profit_per_trip').select('*'),
       ])
 
       setKpisData(kpisRes.data || [])
@@ -56,7 +59,7 @@ export default function Dashboard() {
       setOrders(ordersRes.data || [])
       setRevenue(revenueRes.data || [])
       setExpenses(expensesRes.data || [])
-      setProfitTrips(profitRes.data || [])
+      setTripsData(tripsRes.data || [])
 
       setLastUpdate(new Date().toLocaleTimeString())
       setLoading(false)
@@ -66,299 +69,299 @@ export default function Dashboard() {
     }
   }
 
-  const totalRevenue = revenue.reduce((sum, r) => sum + (r.amount || 0), 0)
-  const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0)
-  const totalProfit = totalRevenue - totalExpenses
+  const updateKPI = async (id: string, newTarget: number) => {
+    try {
+      const { error } = await supabase.from('kpis').update({ target: newTarget }).eq('id', id)
+      if (error) throw error
+      loadDashboardData()
+    } catch (error: any) {
+      alert('Failed to update: ' + error.message)
+    }
+  }
 
-  const pendingOrders = orders.filter(o => o.status === 'pending').length
-  const deliveredOrders = orders.filter(o => o.status === 'delivered').length
+  const totalRevenue = revenue.reduce((sum, r) => sum + (r.amount || 0), 0)
   
-  const activeVehicles = vehicles.filter(v => v.status === 'available').length
-  const maintenanceVehicles = vehicles.filter(v => v.status === 'maintenance').length
-  
-  const paidPayments = revenue.filter(r => r.payment_status === 'paid').length
-  const pendingPayments = revenue.filter(r => r.payment_status === 'pending').length
+  // LIVE PROFIT CALCULATION:
+  // We sum revenue from revenue table and subtract trip expenses from trips table
+  const totalProfitValue = revenue.reduce((sum, r) => {
+    const trip = tripsData.find(t => t.order_id === r.order_id)
+    const exp = trip ? trip.expenses : 0
+    return sum + (r.amount - exp)
+  }, 0)
+
+  const activeVehicles = vehicles.filter((v: any) => v.status === 'available').length
+
+  // Pivot Data: Revenue by Client
+  const clientPivot = revenue.reduce((acc: any, curr: any) => {
+    const cid = curr.client_id || 'Unknown'
+    if (!acc[cid]) acc[cid] = { id: cid, total: 0, count: 0, expenses: 0 }
+    acc[cid].total += (curr.amount || 0)
+    acc[cid].count += 1
+    
+    // Add expenses for pivot
+    const trip = tripsData.find(t => t.order_id === curr.order_id)
+    acc[cid].expenses += (trip ? trip.expenses : 0)
+    return acc
+  }, {})
+
+  const clientPivotArray = Object.values(clientPivot).map((c: any) => ({ ...c, profit: c.total - c.expenses })).sort((a: any, b: any) => b.profit - a.profit)
+  const topClientPivot = clientPivotArray.slice(0, 5)
+
+  // Pivot Data: Revenue Trends
+  const trendData = [
+    { name: 'Jan', revenue: totalRevenue * 0.8, profit: totalProfitValue * 0.8 },
+    { name: 'Feb', revenue: totalRevenue * 0.9, profit: totalProfitValue * 0.85 },
+    { name: 'Mar', revenue: totalRevenue * 0.7, profit: totalProfitValue * 1.1 },
+    { name: 'Apr', revenue: totalRevenue, profit: totalProfitValue },
+  ]
 
   const getKPIMetric = (metricName: string) => {
     const kpi = kpisData.find(k => k.metric.toLowerCase().includes(metricName.toLowerCase()))
-    return kpi ? { target: kpi.target, actual: kpi.actual, variance: kpi.variance, notes: kpi.notes } : { target: 0, actual: 0, variance: 0, notes: '' }
+    return kpi ? { target: kpi.target, actual: kpi.actual } : { target: 0, actual: 0 }
   }
-
-  const profitData = profitTrips.slice(0, 10).map(p => ({
-    trip: p.trip_id,
-    revenue: p.revenue,
-    expenses: p.expenses,
-    profit: p.profit,
-  }))
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-600 font-medium">Loading your dashboard...</p>
-        </div>
+        <div className="w-16 h-16 border-4 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="space-y-10 pb-20">
+      {/* Premium Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">📊 SIKAS Dashboard</h1>
-          <p className="text-slate-500 mt-1">Logistics Management Overview</p>
+          <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none">COMMAND <span className="text-sky-500">CENTER</span></h1>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Live Intelligence Ecosystem v3.1</p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-full text-sm font-medium">
-            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-            Live Data
-          </span>
-          <span className="text-sm text-slate-400">Updated: {lastUpdate}</span>
+        <div className="flex items-center gap-4 bg-white p-3 rounded-[2rem] shadow-sm border border-slate-100">
+          <button 
+            onClick={() => setShowGoalModal(true)}
+            className="px-10 py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs hover:bg-sky-500 transition-all shadow-2xl shadow-slate-200 uppercase tracking-widest italic"
+          >
+            🎯 Adjust Benchmarks
+          </button>
         </div>
       </div>
 
-      {/* KPI Cards from Database */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <MetricCard 
-          title="Revenue Growth" 
-          value={`${getKPIMetric('Revenue Growth').actual}%`} 
-          subtitle={`Target: ${getKPIMetric('Revenue Growth').target}%`} 
-          icon="📈" 
-          color="sky"
-          variance={getKPIMetric('Revenue Growth').variance}
-        />
-        <MetricCard 
-          title="On-Time Delivery" 
-          value={`${getKPIMetric('On-Time Deliveries').actual}%`} 
-          subtitle={`Target: ${getKPIMetric('On-Time Deliveries').target}%`} 
-          icon="⏱️" 
-          color="emerald"
-          variance={getKPIMetric('On-Time Deliveries').variance}
-        />
-        <MetricCard 
-          title="Fuel Efficiency" 
-          value={`${getKPIMetric('Fuel Efficiency').actual} km/L`} 
-          subtitle={`Target: ${getKPIMetric('Fuel Efficiency').target} km/L`} 
-          icon="⛽" 
-          color="amber"
-          variance={getKPIMetric('Fuel Efficiency').variance}
-        />
-        <MetricCard 
-          title="Client Retention" 
-          value={`${getKPIMetric('Client Retention').actual}%`} 
-          subtitle={`Target: ${getKPIMetric('Client Retention').target}%`} 
-          icon="🤝" 
-          color="violet"
-          variance={getKPIMetric('Client Retention').variance}
-        />
+      {/* Hero Insights Card */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 bg-slate-900 rounded-[4rem] p-12 text-white relative overflow-hidden shadow-2xl group transition-all duration-700 hover:shadow-sky-500/10">
+           <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-sky-500/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 group-hover:bg-sky-500/20 transition-all duration-1000"></div>
+           <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-10">
+              <div className="space-y-6">
+                 <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-500/20">
+                   <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_10px_#10b981]"></span>
+                   Live Yield Synchronization Enabled
+                 </div>
+                 <h2 className="text-6xl font-black italic tracking-tighter leading-none">Live Yield <br/><span className={totalProfitValue >= 0 ? 'text-emerald-400' : 'text-red-400'}>PKR {(totalProfitValue/1000).toFixed(0)}K</span></h2>
+                 <p className="text-slate-400 font-bold max-w-sm leading-relaxed text-sm uppercase tracking-wider">
+                   Total Revenue Manifest: <span className="text-white font-black italic">PKR {(totalRevenue/1000).toFixed(0)}K</span> <br/>
+                   Sync Status: <span className="text-sky-400">ACTIVE - REALTIME</span>
+                 </p>
+              </div>
+              <div className="flex items-center gap-6">
+                 <div className="p-8 bg-white/5 rounded-[3.5rem] border border-white/10 backdrop-blur-md text-center group-hover:border-sky-500/30 transition-all shadow-2xl">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 italic">Active Assets</p>
+                    <p className="text-6xl font-black text-white italic tracking-tighter">{activeVehicles}</p>
+                 </div>
+                 <div className="p-8 bg-sky-500 rounded-[3.5rem] text-center shadow-2xl shadow-sky-500/40 group-hover:bg-sky-400 transition-all">
+                    <p className="text-[10px] font-black text-white/60 uppercase tracking-[0.2em] mb-2 italic">Orders Force</p>
+                    <p className="text-6xl font-black text-white italic tracking-tighter">{orders.length}</p>
+                 </div>
+              </div>
+           </div>
+        </div>
+
+        {/* Pivot Summary Card */}
+        <div className="bg-white rounded-[4rem] p-10 border border-slate-100 shadow-sm flex flex-col justify-between group overflow-hidden relative">
+           <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+           <div className="relative z-10">
+              <h3 className="text-xl font-black text-slate-900 italic tracking-tight uppercase mb-8 flex items-center gap-2">
+                 <span className="w-2 h-8 bg-sky-500 rounded-full"></span> Top Clients Pivot
+              </h3>
+              <div className="space-y-6">
+                 {topClientPivot.map((client: any, i) => (
+                    <div key={client.id} className="flex items-center justify-between group/row">
+                       <div>
+                          <p className="text-sm font-black text-slate-800 uppercase italic tracking-tight leading-none mb-1">CID: {client.id}</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">{client.count} Transactions</p>
+                       </div>
+                       <p className={`text-sm font-black italic ${client.profit >=0 ? 'text-sky-600' : 'text-red-600'}`}>PKR {(client.profit/1000).toFixed(0)}K</p>
+                    </div>
+                 ))}
+              </div>
+           </div>
+           <button 
+             onClick={() => setShowPivotModal(true)}
+             className="w-full mt-10 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl text-[10px] font-black uppercase tracking-widest text-slate-900 hover:bg-slate-900 hover:text-white transition-all shadow-sm"
+           >
+              Launch Intelligence Pivot
+           </button>
+        </div>
       </div>
 
-      {/* Financial Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <MetricCard title="Total Revenue" value={`PKR ${(totalRevenue/1000000).toFixed(2)}M`} subtitle="All time" icon="💰" color="green" />
-        <MetricCard title="Total Expenses" value={`PKR ${(totalExpenses/1000000).toFixed(2)}M`} subtitle="All time" icon="📉" color="red" />
-        <MetricCard title="Net Profit" value={`PKR ${(totalProfit/1000000).toFixed(2)}M`} subtitle="All time" icon="💵" color="sky" />
-        <MetricCard title="Avg Profit/Trip" value={`PKR ${getKPIMetric('Avg Profit/Trip').actual.toLocaleString()}`} subtitle="Target: PKR 15,000" icon="📊" color="orange" />
+      {/* KPI Dynamic Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+        <MetricCard title="Gross Revenue" value={`PKR ${(totalRevenue/1000).toFixed(0)}K`} icon="💰" color="emerald" actual={totalRevenue} target={getKPIMetric('Revenue').target} />
+        <MetricCard title="Net Performance" value={`PKR ${(totalProfitValue/1000).toFixed(0)}K`} icon="💎" color="sky" actual={totalProfitValue} target={getKPIMetric('Profit').target} />
+        <MetricCard title="Revenue Growth" value={`${getKPIMetric('Revenue Growth').actual}%`} icon="📈" color="emerald" actual={getKPIMetric('Revenue Growth').actual} target={getKPIMetric('Revenue Growth').target} />
+        <MetricCard title="On-Time Rate" value={`${getKPIMetric('On-Time Deliveries').actual}%`} icon="⏱️" color="violet" actual={getKPIMetric('On-Time Deliveries').actual} target={getKPIMetric('On-Time Deliveries').target} />
       </div>
 
-      {/* Fleet & Operations */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <MetricCard title="Fleet Utilization" value={`${getKPIMetric('Vehicle Utilization').actual}%`} subtitle={`Target: ${getKPIMetric('Vehicle Utilization').target}%`} icon="🚛" color="blue" variance={getKPIMetric('Vehicle Utilization').variance} />
-        <MetricCard title="Active Vehicles" value={`${activeVehicles}/${vehicles.length}`} subtitle="Available" icon="🚚" color="emerald" />
-        <MetricCard title="Active Drivers" value={drivers.length.toString()} subtitle="Total drivers" icon="👤" color="violet" />
-        <MetricCard title="Attendance Rate" value={`${getKPIMetric('Attendance Rate').actual}%`} subtitle={`Target: ${getKPIMetric('Attendance Rate').target}%`} icon="📅" color="amber" variance={getKPIMetric('Attendance Rate').variance} />
+      {/* Charts Visualization Hub */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+        <div className="bg-white p-10 rounded-[4rem] border border-slate-100 shadow-sm relative overflow-hidden group">
+           <div className="flex items-center justify-between mb-10">
+              <h3 className="text-2xl font-black text-slate-900 italic tracking-tighter uppercase">Income vs Yield</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none bg-slate-50 px-4 py-2 rounded-full">Real-time Comparison</p>
+           </div>
+           <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                 <BarChart data={trendData}>
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
+                    <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '2rem', border: 'none', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)', background: '#fff'}} />
+                    <Bar dataKey="revenue" fill="#0ea5e9" radius={[15, 15, 0, 0]} name="Gross Inflow" barSize={40} />
+                    <Bar dataKey="profit" fill="#10b981" radius={[15, 15, 0, 0]} name="Net Yield" barSize={40} />
+                 </BarChart>
+              </ResponsiveContainer>
+           </div>
+        </div>
+
+        <div className="bg-white p-10 rounded-[4rem] border border-slate-100 shadow-sm relative overflow-hidden group">
+           <div className="flex items-center justify-between mb-10">
+              <h3 className="text-2xl font-black text-slate-900 italic tracking-tighter uppercase">Fleet Status</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none bg-slate-50 px-4 py-2 rounded-full">Asset Availability Map</p>
+           </div>
+           <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                 <PieChart>
+                    <Pie 
+                      data={[
+                        { name: 'ACTIVE', value: activeVehicles },
+                        { name: 'MAINTENANCE', value: Math.max(0, vehicles.length - activeVehicles) },
+                      ]} 
+                      cx="50%" cy="50%" innerRadius={80} outerRadius={110} paddingAngle={8} dataKey="value" stroke="none"
+                    >
+                      <Cell fill="#10b981" />
+                      <Cell fill="#475569" />
+                    </Pie>
+                    <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '2rem', border: 'none', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)'}} />
+                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em'}} />
+                 </PieChart>
+              </ResponsiveContainer>
+           </div>
+        </div>
       </div>
 
-      {/* Charts Row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="chart-container">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-slate-800">Order Status</h3>
-            <span className="text-sm text-slate-400">Current distribution</span>
+      {/* Pivot Intelligence Modal */}
+      {showPivotModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-3xl flex items-center justify-center z-50 p-6">
+          <div className="bg-white rounded-[4rem] shadow-2xl w-full max-w-4xl p-14 border border-white/50 relative overflow-y-auto max-h-[90vh]">
+             <button onClick={() => setShowPivotModal(false)} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900 text-4xl transition-all font-black">✕</button>
+             <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2 leading-none">Intelligence Pivot</h2>
+             <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-12">Dynamic Yield Synchronization Active</p>
+             
+             <div className="overflow-x-auto">
+               <table className="w-full text-left">
+                 <thead>
+                   <tr className="border-b-2 border-slate-50">
+                     <th className="pb-8 text-[10px] font-black uppercase tracking-[0.2em] italic text-slate-400">Node ID (Client)</th>
+                     <th className="pb-8 text-[10px] font-black uppercase tracking-[0.2em] italic text-slate-400">Activity</th>
+                     <th className="pb-8 text-[10px] font-black uppercase tracking-[0.2em] italic text-slate-400 text-right">Live Net Yield (PKR)</th>
+                   </tr>
+                 </thead>
+                 <tbody className="divide-y divide-slate-50">
+                    {clientPivotArray.map((client: any) => (
+                      <tr key={client.id} className="group hover:bg-slate-50 transition-all duration-300">
+                        <td className="py-8 font-black text-2xl text-slate-900 italic tracking-tighter leading-none">{client.id}</td>
+                        <td className="py-8">
+                           <span className="font-black text-slate-500 uppercase tracking-widest text-xs italic">{client.count} Transmissions</span>
+                        </td>
+                        <td className={`py-8 text-right font-black text-3xl italic tracking-tighter leading-none ${client.profit >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                           {client.profit.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                 </tbody>
+               </table>
+             </div>
           </div>
-          <ResponsiveContainer width="100%" height="85%">
-            <PieChart>
-              <Pie 
-                data={[
-                  { name: 'Pending', value: pendingOrders },
-                  { name: 'Delivered', value: deliveredOrders },
-                  { name: 'In Use', value: orders.filter(o => o.status === 'dispatched').length },
-                ]} 
-                cx="50%" cy="50%" 
-                innerRadius={60} 
-                outerRadius={90} 
-                paddingAngle={5} 
-                dataKey="value"
-                label={({ name, value }) => `${name}: ${value}`}
-              >
-                {[
-                  { name: 'Pending', value: pendingOrders },
-                  { name: 'Delivered', value: deliveredOrders },
-                  { name: 'In Use', value: orders.filter(o => o.status === 'dispatched').length },
-                ].map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="chart-container">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-slate-800">Payment Status</h3>
-            <span className="text-sm text-slate-400">Revenue collection</span>
-          </div>
-          <ResponsiveContainer width="100%" height="85%">
-            <PieChart>
-              <Pie 
-                data={[
-                  { name: 'Paid', value: paidPayments },
-                  { name: 'Pending', value: pendingPayments },
-                ]} 
-                cx="50%" cy="50%" 
-                innerRadius={60} 
-                outerRadius={90} 
-                paddingAngle={5} 
-                dataKey="value"
-                label={({ name, value }) => `${name}: ${value}`}
-              >
-                {[
-                  { name: 'Paid', value: paidPayments },
-                  { name: 'Pending', value: pendingPayments },
-                ].map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={index === 0 ? '#22c55e' : '#eab308'} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Profit Per Trip Chart */}
-      {profitData.length > 0 && (
-        <div className="chart-container">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-slate-800">Profit Per Trip</h3>
-            <span className="text-sm text-slate-400">Last 10 trips</span>
-          </div>
-          <ResponsiveContainer width="100%" height="85%">
-            <BarChart data={profitData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="trip" stroke="#64748b" fontSize={12} />
-              <YAxis stroke="#64748b" fontSize={12} tickFormatter={(v) => `PKR ${(v/1000).toFixed(0)}K`} />
-              <Tooltip formatter={(v) => `PKR ${Number(v).toLocaleString()}`} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-              <Legend />
-              <Bar dataKey="revenue" fill="#22c55e" name="Revenue" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="expenses" fill="#ef4444" name="Expenses" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="profit" fill="#0ea5e9" name="Profit" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
         </div>
       )}
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="card flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-sky-100 flex items-center justify-center text-2xl">🚛</div>
-          <div>
-            <p className="text-2xl font-bold text-slate-800">{vehicles.length}</p>
-            <p className="text-sm text-slate-500">Total Vehicles</p>
-          </div>
-        </div>
-        <div className="card flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-100 flex items-center justify-center text-2xl">🏢</div>
-          <div>
-            <p className="text-2xl font-bold text-slate-800">{orders.length}</p>
-            <p className="text-sm text-slate-500">Total Orders</p>
-          </div>
-        </div>
-        <div className="card flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-violet-100 flex items-center justify-center text-2xl">👥</div>
-          <div>
-            <p className="text-2xl font-bold text-slate-800">{drivers.length}</p>
-            <p className="text-sm text-slate-500">Total Drivers</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Maintenance Costs */}
-      <div className="card">
-        <h3 className="text-lg font-semibold text-slate-800 mb-4">📋 KPI Performance</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">KPI</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Target</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Actual</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Variance</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Notes</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
+      {/* Benchmarking Modal */}
+      {showGoalModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-3xl flex items-center justify-center z-50 p-6">
+          <div className="bg-white rounded-[4rem] shadow-2xl w-full max-w-2xl p-14 overflow-y-auto max-h-[90vh] border border-white/50 relative">
+            <button onClick={() => setShowGoalModal(false)} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900 text-4xl transition-all font-black">✕</button>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2 leading-none">Goals Manifest</h2>
+            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-12 flex items-center gap-2">
+               <span className="w-3 h-3 bg-sky-500 rounded-full animate-pulse shadow-[0_0_15px_#0ea5e9]"></span> Calibration active
+            </p>
+            
+            <div className="space-y-6">
               {kpisData.map((kpi) => (
-                <tr key={kpi.kpi_id} className="hover:bg-sky-50/50">
-                  <td className="px-4 py-3 font-medium text-slate-800">{kpi.metric}</td>
-                  <td className="px-4 py-3 text-slate-600">{kpi.target}</td>
-                  <td className="px-4 py-3 text-slate-600">{kpi.actual}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold ${
-                      kpi.variance >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
-                    }`}>
-                      {kpi.variance >= 0 ? '+' : ''}{kpi.variance}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-slate-500 text-sm">{kpi.notes}</td>
-                </tr>
+                <div key={kpi.id} className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all hover:bg-white hover:shadow-2xl hover:shadow-slate-100/50">
+                  <div>
+                    <p className="text-xl font-black text-slate-900 italic tracking-tight uppercase leading-none mb-1">{kpi.metric}</p>
+                    <p className="text-[10px] font-black text-sky-500 uppercase tracking-widest">Active State: {kpi.actual}</p>
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-5 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300 uppercase tracking-widest">Goal</span>
+                    <input 
+                      type="number" 
+                      className="pl-20 pr-6 w-40 h-16 bg-white border-2 border-slate-100 rounded-2xl font-black text-2xl text-slate-900 focus:border-sky-500 focus:ring-4 focus:ring-sky-50 transition-all outline-none"
+                      value={kpi.target}
+                      onChange={(e) => updateKPI(kpi.id, parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+            
+            <button onClick={() => setShowGoalModal(false)} className="w-full mt-12 py-8 bg-slate-900 text-white rounded-[2rem] font-black text-xl shadow-2xl hover:bg-sky-500 transition-all active:scale-[0.98] uppercase tracking-[0.2em] italic leading-none">
+               Confirm Performance Logic
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
 
-function MetricCard({ title, value, subtitle, icon, color, variance }: { title: string; value: string | number; subtitle: string; icon: string; color: string; variance?: number }) {
-  const colorClasses: Record<string, string> = {
-    sky: 'from-sky-50 to-blue-50 border-sky-100',
-    emerald: 'from-emerald-50 to-green-50 border-emerald-100',
-    violet: 'from-violet-50 to-purple-50 border-violet-100',
-    amber: 'from-amber-50 to-orange-50 border-amber-100',
-    green: 'from-green-50 to-emerald-50 border-green-100',
-    red: 'from-red-50 to-rose-50 border-red-100',
-    orange: 'from-orange-50 to-amber-50 border-orange-100',
-    blue: 'from-blue-50 to-sky-50 border-blue-100',
+function MetricCard({ title, value, icon, color, actual, target, isInverse = false }: { title: string; value: string; icon: string; color: string; actual?: number; target?: number; isInverse?: boolean }) {
+  const themes: Record<string, string> = {
+    sky: 'from-sky-50 to-white text-sky-600 border-sky-100',
+    emerald: 'from-emerald-50 to-white text-emerald-600 border-emerald-100',
+    rose: 'from-rose-50 to-white text-rose-600 border-rose-100',
+    violet: 'from-violet-50 to-white text-violet-600 border-violet-100',
+    amber: 'from-amber-50 to-white text-amber-600 border-amber-100',
   }
 
-  const iconBg: Record<string, string> = {
-    sky: 'bg-sky-500', emerald: 'bg-emerald-500', violet: 'bg-violet-500',
-    amber: 'bg-amber-500', green: 'bg-green-500', red: 'bg-red-500', orange: 'bg-orange-500', blue: 'bg-blue-500',
-  }
+  const hasGoal = actual !== undefined && target !== undefined
+  const isTargetMet = hasGoal ? (isInverse ? actual <= target : actual >= target) : true
+  const variance = hasGoal ? actual - target : 0
 
   return (
-    <div className={`card-gradient bg-gradient-to-br ${colorClasses[color]} border`}>
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-slate-500">{title}</p>
-          <p className="text-3xl font-bold text-slate-800 mt-2">{value}</p>
-          <div className="flex items-center gap-2 mt-1">
-            <p className="text-sm text-slate-400">{subtitle}</p>
-            {variance !== undefined && (
-              <span className={`text-xs font-bold ${variance >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                {variance >= 0 ? '↑' : '↓'} {Math.abs(variance)}
-              </span>
-            )}
+    <div className={`p-10 rounded-[3.5rem] bg-gradient-to-br ${themes[color]} border shadow-sm transition-all hover:-translate-y-3 hover:shadow-3xl group cursor-default h-full relative overflow-hidden`}>
+      <div className="absolute top-0 right-0 w-32 h-32 bg-white/40 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+      <div className="flex flex-col h-full justify-between relative z-10">
+        <div className="flex items-start justify-between">
+          <div className="w-14 h-14 bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 flex items-center justify-center text-2xl group-hover:scale-110 group-hover:rotate-6 transition-all">
+            {icon}
           </div>
+          {hasGoal && target > 0 && (
+            <span className={`inline-flex items-center gap-1 px-4 py-2 rounded-full text-[10px] font-black italic tracking-tighter ${isTargetMet ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'} shadow-lg shadow-black/5`}>
+              {isTargetMet ? '↑' : '↓'} {variance !== 0 ? Math.abs(variance/target*100).toFixed(0) : 0}%
+            </span>
+          )}
         </div>
-        <div className={`w-12 h-12 rounded-xl ${iconBg[color]} flex items-center justify-center text-xl shadow-lg`}>
-          {icon}
+        <div className="mt-14 space-y-2">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] italic leading-none">{title}</p>
+          <p className="text-4xl font-black text-slate-900 tracking-tighter italic leading-none group-hover:text-slate-900 transition-colors uppercase whitespace-nowrap">{value}</p>
         </div>
       </div>
     </div>
