@@ -155,8 +155,7 @@ export default function Dashboard() {
       </div>
 
       {/* Fleet & Operations */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <MetricCard title="Fleet Utilization" value={`${vehicleUtilizationRate}%`} subtitle={`${activeVehicles} active vehicles`} icon="🚛" color="blue" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <MetricCard title="Active Vehicles" value={`${activeVehicles}/${vehicles.length}`} subtitle="Available" icon="🚚" color="emerald" />
         <MetricCard title="Active Drivers" value={drivers.length.toString()} subtitle="Total drivers" icon="👤" color="violet" />
         <MetricCard title="Attendance Rate" value="92%" subtitle="Target: 90%" icon="📅" color="amber" />
