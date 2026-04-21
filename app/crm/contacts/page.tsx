@@ -127,7 +127,7 @@ export default function ContactsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="label">Contact ID *</label>
-                  <input required className="input" value={formData.contact_id} onChange={e => setFormData({...formData, contact_id: e.target.value})} placeholder="CT001" />
+                  <input disabled className="input" value={formData.contact_id} onChange={e => setFormData({...formData, contact_id: e.target.value})} placeholder="Auto-generated" />
                 </div>
                 <div>
                   <label className="label">Type</label>

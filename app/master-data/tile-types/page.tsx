@@ -101,7 +101,7 @@ export default function TileTypesPage() {
         </div>
         <div className="flex items-center gap-4 bg-white p-3 rounded-[2rem] shadow-sm border border-slate-100">
           <button onClick={() => { setEditingTile(null); setShowModal(true) }} className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs hover:bg-sky-500 transition-all shadow-xl shadow-slate-200 uppercase tracking-widest italic">
-            + Provision Asset Class
+            + Add Vehicle Class
           </button>
         </div>
       </div>
@@ -127,9 +127,9 @@ export default function TileTypesPage() {
             <thead>
               <tr className="border-b border-slate-50">
                 <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Specification</th>
-                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Physical Dimensions</th>
-                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Box Density</th>
-                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Unit Mass</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Size</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Pieces/Box</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Weight (kg)</th>
                 <th className="px-8 py-8 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Operations</th>
               </tr>
             </thead>
@@ -164,13 +164,13 @@ export default function TileTypesPage() {
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-3xl flex items-center justify-center z-50 p-6">
           <div className="bg-white rounded-[4rem] shadow-2xl w-full max-w-lg p-14 border border-white/50 relative overflow-y-auto max-h-[90vh]">
             <button onClick={() => { setShowModal(false); setEditingTile(null) }} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900 text-4xl font-black transition-all">✕</button>
-            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">{editingTile ? 'Modify Spec' : 'Provision Spec'}</h2>
-            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-12">Asset class identity protocol</p>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">{editingTile ? 'Edit Tile' : 'Add Tile'}</h2>
+            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-12">Tile details</p>
             
             <form onSubmit={handleSubmit} className="space-y-8">
               <div className="space-y-3">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Manifest Name *</label>
-                <input required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="E-TILES GOLD" value={formData.tile_name} onChange={e => setFormData({...formData, tile_name: e.target.value})} />
+                <input disabled className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="Auto-generated" value={formData.tile_name} onChange={e => setFormData({...formData, tile_name: e.target.value})} />
               </div>
 
                <div className="space-y-3">

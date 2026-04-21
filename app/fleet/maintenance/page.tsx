@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/app/lib/supabase'
 
 interface MaintenanceRecord {
@@ -75,7 +76,7 @@ export default function MaintenancePage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('De-register this maintenance event?')) {
+    if (confirm('Delete this maintenance record?')) {
       try {
         await supabase.from('maintenance_records').delete().eq('id', id)
         loadData()
@@ -106,12 +107,15 @@ export default function MaintenancePage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
-          <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Fleet <span className="text-sky-500">Care</span></h1>
-          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Asset Maintenance Manifest</p>
+          <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Maintenance</h1>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Maintenance Records</p>
         </div>
         <div className="flex items-center gap-4 bg-white p-3 rounded-[2rem] shadow-sm border border-slate-100">
+          <Link href="/finance/expenses" className="px-6 py-4 bg-white text-slate-900 border-2 border-slate-200 rounded-[1.5rem] font-black text-xs hover:bg-slate-100 transition-all uppercase tracking-widest italic">
+            💸 Expenses
+          </Link>
           <button onClick={() => { setEditingRecord(null); resetForm(); setShowModal(true) }} className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs hover:bg-sky-500 transition-all shadow-xl shadow-slate-200 uppercase tracking-widest italic">
-            + Schedule Event
+            + Add Record
           </button>
         </div>
       </div>
@@ -120,11 +124,11 @@ export default function MaintenancePage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="bg-slate-900 rounded-[4rem] p-12 text-white shadow-2xl relative overflow-hidden group transition-all">
           <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2"></div>
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">Aggregated Health Expense</p>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">Total Cost</p>
           <p className="text-5xl font-black italic tracking-tighter text-emerald-400">PKR {(totalCost/1000).toFixed(0)}K</p>
         </div>
         <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm relative overflow-hidden">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Total Health Logs</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Total Records</p>
           <p className="text-5xl font-black text-slate-900 italic tracking-tighter">{records.length}</p>
         </div>
         <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm relative overflow-hidden">
@@ -139,11 +143,11 @@ export default function MaintenancePage() {
           <table className="min-w-full">
             <thead>
               <tr className="border-b border-slate-50">
-                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Protocol ID</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">ID</th>
                 <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Vehicle Asset</th>
-                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Timestamp / Logic</th>
-                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Valuation (PKR)</th>
-                <th className="px-8 py-8 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Operations</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Date / Type</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Cost (PKR)</th>
+                <th className="px-8 py-8 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -183,7 +187,7 @@ export default function MaintenancePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Manifest ID *</label>
-                  <input required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="M-800" value={formData.maintenance_id} onChange={e => setFormData({...formData, maintenance_id: e.target.value})} />
+                  <input disabled className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="Auto-generated" value={formData.maintenance_id} onChange={e => setFormData({...formData, maintenance_id: e.target.value})} />
                 </div>
                 <div className="space-y-3">
                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Vehicle Asset *</label>
@@ -200,7 +204,7 @@ export default function MaintenancePage() {
 
                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Timestamp</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Date</label>
                   <input type="date" className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" value={formData.maintenance_date} onChange={e => setFormData({...formData, maintenance_date: e.target.value})} />
                 </div>
                 <div className="space-y-3">

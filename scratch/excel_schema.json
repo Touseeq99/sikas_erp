@@ -1,0 +1,31 @@
+{
+  "Vehicles": [
+    "Vehicle ID",
+    "Vehicle Number"
+  ],
+  "Employees": [
+    "Employee ID",
+    "Name"
+  ],
+  "Departments": [
+    "Department Name",
+    "HOD"
+  ],
+  "Tile Type": [
+    "Specification",
+    "Dimension"
+  ],
+  "Operations": [
+    "Client ID",
+    "Location",
+    "Weight ",
+    "( RPT ) ",
+    "Revenue"
+  ],
+  "Financial Dashboard": [
+    "Client ID",
+    "Inbound Revenue",
+    "Operational Expense ",
+    "Cash Inflow"
+  ]
+}

@@ -145,11 +145,11 @@ export default function OrdersPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
           <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Operational <span className="text-sky-500">Flow</span></h1>
-          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Logistics Transaction Ledger</p>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Order Records</p>
         </div>
         <div className="flex items-center gap-4 bg-white p-3 rounded-[2rem] shadow-sm border border-slate-100">
           <button onClick={() => { setEditingOrder(null); resetForm(); setShowModal(true) }} className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs hover:bg-sky-500 transition-all shadow-xl shadow-slate-200 uppercase tracking-widest italic">
-            + Provision Order
+            + Add Order
           </button>
         </div>
       </div>
@@ -171,7 +171,7 @@ export default function OrdersPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="bg-slate-900 rounded-[4rem] p-12 text-white shadow-2xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-sky-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2"></div>
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">Total Managed Orders</p>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">Total Orders</p>
           <p className="text-5xl font-black italic tracking-tighter">{orders.length}<span className="text-sky-500 text-2xl uppercase ml-2 tracking-widest font-black">Entries</span></p>
         </div>
         <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm">
@@ -192,7 +192,7 @@ export default function OrdersPage() {
               <tr className="border-b border-slate-50">
                 <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Order Key</th>
                 <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Client Node</th>
-                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Asset / Pilot</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Asset / Driver</th>
                 <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Lifecycle</th>
                 <th className="px-8 py-8 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Operations</th>
               </tr>
@@ -208,7 +208,7 @@ export default function OrdersPage() {
                   <td className="px-8 py-8">
                      <div className="flex flex-col">
                         <span className="font-black text-slate-900 italic text-sm uppercase">{o.vehicle_id || 'OUTSOURCED'}</span>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{o.driver_id || 'External Pilot'}</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{o.driver_id || 'External'}</span>
                      </div>
                   </td>
                   <td className="px-8 py-8">
@@ -251,7 +251,7 @@ export default function OrdersPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Order Key *</label>
-                  <input required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="O-1001" value={formData.order_id} onChange={e => setFormData({...formData, order_id: e.target.value})} />
+                  <input disabled className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="Auto-generated" value={formData.order_id} onChange={e => setFormData({...formData, order_id: e.target.value})} />
                 </div>
                 <div className="space-y-3">
                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Origin Node (Client)</label>

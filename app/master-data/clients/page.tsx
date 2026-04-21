@@ -136,7 +136,7 @@ export default function ClientsPage() {
       setShowModal(false)
       setEditingClient(null)
       loadData()
-      alert('Network node updated.')
+      alert('Client saved.')
     } catch (error: any) {
       alert('Error: ' + error.message)
     }
@@ -175,11 +175,11 @@ export default function ClientsPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
           <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Client <span className="text-sky-500">Nodes</span></h1>
-          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Live Economic Synchronization Active</p>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Manage Clients</p>
         </div>
         <div className="flex items-center gap-4 bg-white p-3 rounded-[2rem] shadow-sm border border-slate-100">
           <button onClick={() => { setEditingClient(null); setFormData({ client_id: '' }); setShowModal(true) }} className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs hover:bg-sky-500 transition-all shadow-xl shadow-slate-200 uppercase tracking-widest italic">
-            + Provision Node ID
+            + Add Client
           </button>
         </div>
       </div>
@@ -188,16 +188,16 @@ export default function ClientsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="bg-slate-900 rounded-[4rem] p-12 text-white shadow-2xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2"></div>
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">Total Registered Nodes</p>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">Total Clients</p>
           <p className="text-5xl font-black italic tracking-tighter">{clients.length}<span className="text-sky-500 text-2xl uppercase ml-2 tracking-widest font-black">IDs</span></p>
         </div>
         <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm relative overflow-hidden">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Dynamic Global Yield</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Total Profit</p>
           <p className="text-4xl font-black text-emerald-500 italic uppercase leading-none">PKR {(totalGlobalProfit/1000).toFixed(0)}K</p>
           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-3 block italic">Real-time sync enabled</span>
         </div>
         <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Outstanding Receivables</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Pending Payments</p>
           <p className="text-4xl font-black text-red-500 italic uppercase">PKR {(revenues.filter(r => r.payment_status === 'unpaid').reduce((s, r) => s + (r.amount || 0), 0)/1000).toFixed(0)}K</p>
         </div>
       </div>
@@ -208,10 +208,10 @@ export default function ClientsPage() {
           <table className="min-w-full">
             <thead>
               <tr className="border-b border-slate-50">
-                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Node Identifier</th>
-                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Operational Logic</th>
-                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Asset Density</th>
-                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Live Net Yield</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Client ID</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Orders</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Vehicles</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Profit</th>
                 <th className="px-8 py-8 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Operations</th>
               </tr>
             </thead>
@@ -222,7 +222,7 @@ export default function ClientsPage() {
                   <tr key={c.id} className="group hover:bg-slate-50/50 transition-all">
                     <td className="px-8 py-8 font-black text-slate-900 italic tracking-tighter text-2xl leading-none">{c.client_id}</td>
                     <td className="px-8 py-8">
-                       <span className="font-black text-slate-800 uppercase tracking-tight text-sm block leading-none">{stats.totalOrders} Global Transmissions</span>
+                       <span className="font-black text-slate-800 uppercase tracking-tight text-sm block leading-none">{stats.totalOrders} Orders</span>
                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 block">Stability: VERIFIED</span>
                     </td>
                     <td className="px-8 py-8">
@@ -262,17 +262,17 @@ export default function ClientsPage() {
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-3xl flex items-center justify-center z-50 p-6">
           <div className="bg-white rounded-[4rem] shadow-2xl w-full max-w-lg p-14 overflow-y-auto max-h-[90vh] border border-white/50 relative">
             <button onClick={() => { setShowModal(false); setEditingClient(null) }} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900 text-4xl transition-all font-black">✕</button>
-            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2 leading-none">{editingClient ? 'Identify node' : 'Provision Node'}</h2>
-            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-12">Network origin Identifier</p>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2 leading-none">{editingClient ? 'Edit Client' : 'Add Client'}</h2>
+            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-12">Client Details</p>
             
             <form onSubmit={handleSubmit} className="space-y-8">
               <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Node Identifier *</label>
-                <input required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="CL-ID-2025" value={formData.client_id} onChange={e => setFormData({...formData, client_id: e.target.value})} />
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Client ID *</label>
+                <input disabled className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="Auto-generated" value={formData.client_id} onChange={e => setFormData({...formData, client_id: e.target.value})} />
               </div>
 
               <button type="submit" className="w-full py-8 bg-slate-900 text-white rounded-[2rem] font-black text-xl shadow-2xl hover:bg-sky-500 transition-all active:scale-[0.98] uppercase tracking-[0.2em] italic leading-none">
-                 Execute Registration
+                 Save
               </button>
             </form>
           </div>

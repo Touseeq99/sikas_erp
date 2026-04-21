@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/app/lib/supabase'
 
 interface Invoice {
@@ -131,6 +132,28 @@ export default function InvoicesPage() {
   const totalOutstanding = invoices.reduce((sum, i) => sum + ((i.grand_total || 0) - (i.paid_amount || 0)), 0)
   const totalAmountValue = invoices.reduce((sum, i) => sum + (i.grand_total || 0), 0)
   const totalCollected = invoices.reduce((sum, i) => sum + (i.paid_amount || 0), 0)
+  const linkedToRevenue = invoices.filter(i => i.status === 'paid').length
+
+  const convertToRevenue = async (invoice: Invoice) => {
+    const revPayload = {
+      revenue_id: `REV-${invoice.invoice_number}`,
+      client_id: invoice.client_id,
+      amount: invoice.paid_amount,
+      payment_status: 'paid',
+      revenue_date: invoice.paid_date || new Date().toISOString().split('T')[0],
+      weight_tons: invoice.total_weight_tons,
+      rate_per_ton: invoice.total_weight_tons > 0 ? (invoice.total_amount / invoice.total_weight_tons) : 0
+    }
+    
+    try {
+      const { error } = await supabase.from('revenue').insert(revPayload)
+      if (error) throw error
+      alert('Revenue record created from invoice!')
+      loadData()
+    } catch (e: any) {
+      alert('Failed to convert: ' + e.message)
+    }
+  }
 
   if (loading) return (
     <div className="flex items-center justify-center h-[60vh]">
@@ -143,18 +166,24 @@ export default function InvoicesPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
-          <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Billing <span className="text-sky-500">Node</span></h1>
-          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Financial Inflow Protocol</p>
+          <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Invoices</h1>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Billing & Receivables</p>
         </div>
         <div className="flex items-center gap-4 bg-white p-3 rounded-[2rem] shadow-sm border border-slate-100">
+          <Link href="/finance/revenue" className="px-6 py-4 bg-white text-slate-900 border-2 border-slate-200 rounded-[1.5rem] font-black text-xs hover:bg-slate-100 transition-all uppercase tracking-widest italic">
+            💰 Revenue
+          </Link>
+          <Link href="/finance/expenses" className="px-6 py-4 bg-white text-slate-900 border-2 border-slate-200 rounded-[1.5rem] font-black text-xs hover:bg-slate-100 transition-all uppercase tracking-widest italic">
+            💸 Expenses
+          </Link>
           <button onClick={() => { setEditingInvoice(null); resetForm(); setShowModal(true) }} className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs hover:bg-sky-500 transition-all shadow-xl shadow-slate-200 uppercase tracking-widest italic leading-none">
-            + Provision Invoice
+            + Create Invoice
           </button>
         </div>
       </div>
 
       {/* Hero Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
         <div className="bg-slate-900 rounded-[3rem] p-10 text-white shadow-2xl relative overflow-hidden group border border-white/5">
           <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/10 rounded-full blur-[40px] -translate-y-1/2 translate-x-1/2"></div>
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 italic">Total Invoiced</p>
@@ -167,6 +196,10 @@ export default function InvoicesPage() {
         <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 italic">Outstanding Flow</p>
           <p className="text-4xl font-black text-red-500 italic uppercase">PKR {(totalOutstanding/1000).toFixed(0)}K</p>
+        </div>
+        <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 italic">Linked to Revenue</p>
+          <p className="text-4xl font-black text-violet-500 italic uppercase">{linkedToRevenue}</p>
         </div>
         <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 italic">Billing Samples</p>
@@ -208,6 +241,9 @@ export default function InvoicesPage() {
                   </td>
                   <td className="px-8 py-8 text-right">
                     <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all">
+                      {inv.status === 'paid' && (
+                        <button onClick={() => convertToRevenue(inv)} className="p-3 bg-violet-50 text-violet-600 rounded-xl hover:bg-violet-500 hover:text-white transition-all" title="Convert to Revenue">💰</button>
+                      )}
                       <button onClick={() => { setEditingInvoice(inv); setFormData({ invoice_number: inv.invoice_number, client_id: inv.client_id, invoice_date: inv.invoice_date || '', week_start_date: inv.week_start_date || '', week_end_date: inv.week_end_date || '', total_weight_tons: inv.total_weight_tons?.toString() || '', total_amount: inv.total_amount?.toString() || '', status: inv.status, due_date: inv.due_date || '', paid_amount: inv.paid_amount?.toString() || '' }); setShowModal(true) }} className="p-3 bg-sky-50 text-sky-600 rounded-xl hover:bg-sky-900 hover:text-white transition-all">✏️</button>
                       <button onClick={() => handleDelete(inv.id)} className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-500 hover:text-white transition-all">🗑️</button>
                     </div>
@@ -224,14 +260,14 @@ export default function InvoicesPage() {
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-3xl flex items-center justify-center z-50 p-6">
           <div className="bg-white rounded-[4rem] shadow-2xl w-full max-w-2xl p-14 border border-white/50 relative overflow-y-auto max-h-[90vh]">
             <button onClick={() => { setShowModal(false); setEditingInvoice(null); resetForm() }} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900 text-4xl font-black">✕</button>
-            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2 leading-none">{editingInvoice ? 'Recalibrate' : 'Provision Invoice'}</h2>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2 leading-none">{editingInvoice ? 'Edit Invoice' : 'Add Invoice'}</h2>
             <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-12 italic">Monetary inflow identification</p>
             
             <form onSubmit={handleSubmit} className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Invoice Key *</label>
-                  <input required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner uppercase" placeholder="INV-2025" value={formData.invoice_number} onChange={e => setFormData({...formData, invoice_number: e.target.value})} />
+                  <input disabled className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner uppercase" placeholder="Auto-generated" value={formData.invoice_number} onChange={e => setFormData({...formData, invoice_number: e.target.value})} />
                 </div>
                 <div className="space-y-3">
                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Client Node *</label>

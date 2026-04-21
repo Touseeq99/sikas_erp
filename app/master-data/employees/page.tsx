@@ -88,7 +88,7 @@ export default function EmployeesPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('De-provision this staff node?')) {
+    if (confirm('Delete this employee?')) {
       try {
         await supabase.from('employees').delete().eq('id', id)
         loadData()
@@ -118,7 +118,7 @@ export default function EmployeesPage() {
         </div>
         <div className="flex items-center gap-4 bg-white p-3 rounded-[2rem] shadow-sm border border-slate-100">
           <button onClick={() => { setEditingEmployee(null); resetForm(); setShowModal(true) }} className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs hover:bg-sky-500 transition-all shadow-xl shadow-slate-200 uppercase tracking-widest italic">
-            + Provision Staff Node
+            + Add Employee
           </button>
         </div>
       </div>
@@ -127,8 +127,8 @@ export default function EmployeesPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="bg-slate-900 rounded-[4rem] p-12 text-white shadow-2xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-sky-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2"></div>
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">Total Registered Staff</p>
-          <p className="text-5xl font-black italic tracking-tighter">{employees.length}<span className="text-sky-500 text-2xl uppercase ml-2 tracking-widest font-black">Nodes</span></p>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">Total Employees</p>
+          <p className="text-5xl font-black italic tracking-tighter">{employees.length}</p>
         </div>
         <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Active Departments</p>
@@ -192,7 +192,7 @@ export default function EmployeesPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Staff Code *</label>
-                  <input required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="E-001" value={formData.employee_id} onChange={e => setFormData({...formData, employee_id: e.target.value})} />
+                  <input disabled className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="Auto-generated" value={formData.employee_id} onChange={e => setFormData({...formData, employee_id: e.target.value})} />
                 </div>
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Legal Name</label>

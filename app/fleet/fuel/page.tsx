@@ -52,10 +52,12 @@ export default function FuelTrackingPage() {
     try {
       const [recordsRes, vehiclesRes] = await Promise.all([
         supabase.from('fuel_tracking').select('*').order('fill_date', { ascending: false }),
-        supabase.from('vehicles').select('id, vehicle_id, registration_no, is_outsourced').order('vehicle_id'),
+        supabase.from('vehicles').select('id, vehicle_id, registration_no, is_active').order('vehicle_id'),
       ])
       setRecords(recordsRes.data || [])
-      setVehicles(vehiclesRes.data || [])
+      const vehiclesData = vehiclesRes.data || []
+      console.log('Fuel - Vehicles:', vehiclesData)
+      setVehicles(vehiclesData)
     } catch (error: any) {
       console.error('Error loading fuel data:', error)
     } finally {
@@ -120,12 +122,12 @@ export default function FuelTrackingPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
-          <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Fuel <span className="text-amber-500">Node</span></h1>
-          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Propellant Consumption Flow</p>
+          <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Fuel Records</h1>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Fuel Tracking</p>
         </div>
         <div className="flex items-center gap-4 bg-white p-3 rounded-[2rem] shadow-sm border border-slate-100">
           <button onClick={() => { setEditingRecord(null); resetForm(); setShowModal(true) }} className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs hover:bg-amber-500 transition-all shadow-xl shadow-slate-200 uppercase tracking-widest italic">
-            + Log Consumption
+            + Add Record
           </button>
         </div>
       </div>
@@ -134,11 +136,11 @@ export default function FuelTrackingPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="bg-slate-900 rounded-[4rem] p-12 text-white shadow-2xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2"></div>
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">Aggregated Propellant Burn</p>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">Total Cost</p>
           <p className="text-5xl font-black italic tracking-tighter text-amber-400">PKR {(totalCost/1000).toFixed(0)}K</p>
         </div>
         <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm relative overflow-hidden group">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Volume Flow</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Total Liters</p>
           <p className="text-5xl font-black text-slate-900 italic uppercase">{totalLiters.toLocaleString()} <span className="text-xl text-slate-400">Liters</span></p>
         </div>
         <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm relative overflow-hidden group">
@@ -153,7 +155,7 @@ export default function FuelTrackingPage() {
           <table className="min-w-full">
             <thead>
               <tr className="border-b border-slate-50">
-                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Timestamp</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Date</th>
                 <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Vehicle Asset</th>
                 <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Volume / Burn</th>
                 <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Node (Station)</th>
@@ -201,22 +203,22 @@ export default function FuelTrackingPage() {
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-3xl flex items-center justify-center z-50 p-6">
           <div className="bg-white rounded-[4rem] shadow-2xl w-full max-w-2xl p-14 border border-white/50 relative overflow-y-auto max-h-[90vh]">
             <button onClick={() => { setShowModal(false); setEditingRecord(null); resetForm() }} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900 text-4xl font-black">✕</button>
-            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">{editingRecord ? 'Recalibrate' : 'Log Propellant'}</h2>
-            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-12">Flow identification protocol</p>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">{editingRecord ? 'Edit Record' : 'Add Fuel Record'}</h2>
+            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-12">Fuel entry details</p>
             
             <form onSubmit={handleSubmit} className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Entry Key *</label>
-                  <input required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="F-900" value={formData.fuel_id} onChange={e => setFormData({...formData, fuel_id: e.target.value})} />
+                  <input disabled className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="Auto-generated" value={formData.fuel_id} onChange={e => setFormData({...formData, fuel_id: e.target.value})} />
                 </div>
                 <div className="space-y-3">
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Vehicle Asset *</label>
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Vehicle *</label>
                    <select required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
-                     <option value="">Select ID...</option>
+                     <option value="">Select...</option>
                      {vehicles.map(v => (
                        <option key={v.id} value={v.vehicle_id}>
-                         {v.vehicle_id} - {v.registration_no}
+                         {v.vehicle_id}
                        </option>
                      ))}
                    </select>
@@ -225,7 +227,7 @@ export default function FuelTrackingPage() {
 
                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Timestamp</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Date</label>
                   <input type="date" className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" value={formData.fill_date} onChange={e => setFormData({...formData, fill_date: e.target.value})} />
                 </div>
                 <div className="space-y-3">

@@ -146,7 +146,7 @@ export default function AttendancePage() {
       const emp = employees.find(e => e.employee_id === record.employee_id)
       return emp ? emp.name : `Emp ${record.employee_id}`
     } else {
-      if (record.is_outsourced || record.driver_id === 'OUTSOURCED') return 'Outsourced Pilot'
+      if (record.is_outsourced || record.driver_id === 'OUTSOURCED') return 'Outsourced Driver'
       const driver = drivers.find(d => d.driver_id === record.driver_id)
       return driver ? driver.name : `Drv ${record.driver_id}`
     }
@@ -166,13 +166,13 @@ export default function AttendancePage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
-          <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Presence <span className="text-emerald-500">Flow</span></h1>
-          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Workforce Availability Protocol</p>
+          <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Attendance</h1>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Attendance Tracking</p>
         </div>
         <div className="flex items-center gap-4 bg-white p-3 rounded-[2rem] shadow-sm border border-slate-100">
           <input type="date" className="bg-transparent border-none font-black text-sm outline-none px-4 cursor-pointer" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
           <button onClick={() => { setEditingRecord(null); resetForm(); setShowModal(true) }} className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs hover:bg-emerald-500 transition-all shadow-xl shadow-slate-200 uppercase tracking-widest italic">
-            + Log Activity
+            + Add Record
           </button>
         </div>
       </div>
@@ -204,11 +204,11 @@ export default function AttendancePage() {
           <table className="min-w-full">
             <thead>
               <tr className="border-b border-slate-50">
-                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Log ID</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">ID</th>
                 <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Identity</th>
                 <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Shift Date</th>
-                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">State Node</th>
-                <th className="px-8 py-8 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Operations</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Status</th>
+                <th className="px-8 py-8 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -217,7 +217,7 @@ export default function AttendancePage() {
                   <td className="px-8 py-8 font-black text-slate-900 italic tracking-tighter text-2xl">{r.attendance_id}</td>
                   <td className="px-8 py-8">
                      <span className="font-black text-slate-800 uppercase tracking-tight text-sm block leading-none">{getDisplayName(r)}</span>
-                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 block">{r.type === 'driver' ? 'Fleet Pilot' : 'Service Employee'}</span>
+                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 block">{r.type === 'driver' ? 'Driver' : 'Employee'}</span>
                   </td>
                   <td className="px-8 py-8 text-slate-600 font-black italic tracking-tight">{r.attendance_date}</td>
                   <td className="px-8 py-8">
@@ -256,47 +256,47 @@ export default function AttendancePage() {
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-3xl flex items-center justify-center z-50 p-6">
           <div className="bg-white rounded-[4rem] shadow-2xl w-full max-w-2xl p-14 overflow-y-auto max-h-[90vh] border border-white/50 relative">
             <button onClick={() => { setShowModal(false); setEditingRecord(null); resetForm() }} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900 text-4xl transition-all font-black">✕</button>
-            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">{editingRecord ? 'Modify Log' : 'Calibrate Presence'}</h2>
-            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-12">System Workforce Identification</p>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">{editingRecord ? 'Edit Attendance' : 'Add Attendance'}</h2>
+            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-12">Attendance Record</p>
             
             <form onSubmit={handleSubmit} className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Log Identification *</label>
-                  <input required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="P-LOG" value={formData.attendance_id} onChange={e => setFormData({...formData, attendance_id: e.target.value})} />
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Attendance ID *</label>
+                  <input disabled className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="Auto-generated" value={formData.attendance_id} onChange={e => setFormData({...formData, attendance_id: e.target.value})} />
                 </div>
                 <div className="space-y-3">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Shift Event Date</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Date</label>
                   <input type="date" className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" value={formData.attendance_date} onChange={e => setFormData({...formData, attendance_date: e.target.value})} />
                 </div>
               </div>
 
               <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Resource Category</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Type</label>
                 <div className="flex gap-4">
-                  <button type="button" onClick={() => setFormData({...formData, type: 'driver'})} className={`flex-1 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] italic transition-all ${formData.type === 'driver' ? 'bg-slate-900 text-white shadow-xl' : 'bg-slate-50 text-slate-400'}`}>Fleet Pilot</button>
-                  <button type="button" onClick={() => setFormData({...formData, type: 'employee'})} className={`flex-1 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] italic transition-all ${formData.type === 'employee' ? 'bg-slate-900 text-white shadow-xl' : 'bg-slate-50 text-slate-400'}`}>Staff Node</button>
+                  <button type="button" onClick={() => setFormData({...formData, type: 'driver'})} className={`flex-1 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] italic transition-all ${formData.type === 'driver' ? 'bg-slate-900 text-white shadow-xl' : 'bg-slate-50 text-slate-400'}`}>Driver</button>
+                  <button type="button" onClick={() => setFormData({...formData, type: 'employee'})} className={`flex-1 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] italic transition-all ${formData.type === 'employee' ? 'bg-slate-900 text-white shadow-xl' : 'bg-slate-50 text-slate-400'}`}>Employee</button>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Resource Identification *</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Person *</label>
                 {formData.type === 'driver' ? (
                   <div className="space-y-4">
                     <label className="flex items-center gap-4 cursor-pointer group px-6">
                       <input type="checkbox" className="w-6 h-6 rounded-lg text-emerald-500" checked={formData.is_outsourced} onChange={e => setFormData({...formData, is_outsourced: e.target.checked, status: e.target.checked ? 'outsourced' : 'present'})} />
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic group-hover:text-slate-900 transition-colors">Outsourced Resource Logic</span>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic group-hover:text-slate-900 transition-colors">Outsourced</span>
                     </label>
                     {!formData.is_outsourced && (
                       <select required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" value={formData.driver_id} onChange={e => setFormData({...formData, driver_id: e.target.value})}>
-                        <option value="">Select Pilot...</option>
+                        <option value="">Select Driver...</option>
                         {drivers.map(d => <option key={d.id} value={d.driver_id}>{d.name}</option>)}
                       </select>
                     )}
                   </div>
                 ) : (
                   <select required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" value={formData.employee_id} onChange={e => setFormData({...formData, employee_id: e.target.value})}>
-                    <option value="">Select Recipient...</option>
+                    <option value="">Select Person...</option>
                     {employees.map(e => <option key={e.id} value={e.employee_id}>{e.name}</option>)}
                   </select>
                 )}

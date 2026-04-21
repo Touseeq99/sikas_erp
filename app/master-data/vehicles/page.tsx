@@ -11,6 +11,7 @@ interface Vehicle {
   registration_no: string
   capacity: string
   status: string
+  is_active: boolean
   is_outsourced: boolean
   make?: string
   model?: string
@@ -31,6 +32,7 @@ export default function VehiclesPage() {
     registration_no: '',
     capacity: '',
     status: 'available',
+    is_active: true,
     is_outsourced: false,
     make: '',
     model: '',
@@ -48,7 +50,7 @@ export default function VehiclesPage() {
   const loadVehicles = async () => {
     try {
       const { data, error } = await supabase.from('vehicles').select('*').order('vehicle_id')
-      if (error) throw error
+      console.log('Vehicles loaded:', data, error)
       setVehicles(data || [])
     } catch (error: any) {
       console.error('Error loading vehicles:', error)
@@ -71,7 +73,7 @@ export default function VehiclesPage() {
       setEditingVehicle(null)
       resetForm()
       loadVehicles()
-      alert('Vehicle configuration saved.')
+      alert('Vehicle saved.')
     } catch (error: any) {
       alert('Failed: ' + error.message)
     }
@@ -80,18 +82,19 @@ export default function VehiclesPage() {
   const resetForm = () => {
     setFormData({ 
       vehicle_id: '', type: '', registration_no: '', capacity: '', 
-      status: 'available', is_outsourced: false, make: '', model: '' 
+      status: 'available', is_active: true, is_outsourced: false, make: '', model: '' 
     })
   }
 
-  const handleEdit = (vehicle: Vehicle) => {
+  const handleEdit = (vehicle: any) => {
     setEditingVehicle(vehicle)
     setFormData({
       vehicle_id: vehicle.vehicle_id,
       type: vehicle.type || '',
       registration_no: vehicle.registration_no || '',
-      capacity: vehicle.capacity || '',
+      capacity: vehicle.capacity?.toString() || '',
       status: vehicle.status,
+      is_active: vehicle.is_active || true,
       is_outsourced: vehicle.is_outsourced || false,
       make: vehicle.make || '',
       model: vehicle.model || '',
@@ -100,7 +103,7 @@ export default function VehiclesPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('Permanently decommission this asset?')) {
+    if (confirm('Delete this vehicle?')) {
       try {
         await supabase.from('vehicles').delete().eq('id', id)
         loadVehicles()
@@ -148,6 +151,7 @@ export default function VehiclesPage() {
   )
 
   const activeCount = vehicles.filter(v => v.status === 'available').length
+  const inActiveCount = vehicles.filter(v => !v.is_active).length
   const outsourcedCount = vehicles.filter(v => v.is_outsourced).length
 
   return (
@@ -155,15 +159,15 @@ export default function VehiclesPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
-          <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Asset <span className="text-sky-500">Fleet</span></h1>
-          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Hardware Resource Infrastructure</p>
+          <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Vehicles</h1>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Vehicle Management</p>
         </div>
         <div className="flex items-center gap-4 bg-white p-3 rounded-[2rem] shadow-sm border border-slate-100">
           <button onClick={() => setShowImportModal(true)} className="px-6 py-4 border-2 border-slate-100 rounded-[1.5rem] font-black text-xs hover:bg-slate-50 transition-all uppercase tracking-widest italic">
             Excel Import
           </button>
           <button onClick={() => { setEditingVehicle(null); resetForm(); setShowModal(true) }} className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs hover:bg-sky-500 transition-all shadow-xl shadow-slate-200 uppercase tracking-widest italic">
-            + Provision Asset
+            + Add Vehicle
           </button>
         </div>
       </div>
@@ -172,15 +176,15 @@ export default function VehiclesPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="bg-slate-900 rounded-[4rem] p-12 text-white shadow-2xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-sky-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2"></div>
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">Total Asset Load</p>
-          <p className="text-5xl font-black italic tracking-tighter">{vehicles.length}<span className="text-sky-500 text-2xl uppercase ml-2 tracking-widest font-black">Units</span></p>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">Total Vehicles</p>
+          <p className="text-5xl font-black italic tracking-tighter">{vehicles.length}<span className="text-sky-500 text-2xl uppercase ml-2 tracking-widest font-black">Vehicles</span></p>
         </div>
         <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">In-house capacity</p>
-          <p className="text-5xl font-black text-emerald-500 italic">{vehicles.length - outsourcedCount}</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Active Vehicles</p>
+          <p className="text-5xl font-black text-emerald-500 italic">{vehicles.length - inActiveCount}</p>
         </div>
         <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Operational now</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Available Now</p>
           <p className="text-5xl font-black text-sky-500 italic">{activeCount}</p>
         </div>
       </div>
@@ -190,9 +194,9 @@ export default function VehiclesPage() {
          <div className="absolute right-0 bottom-0 text-[10rem] font-black text-sky-500/5 -translate-y-10 translate-x-10 italic pointer-events-none">FLEET</div>
          <div className="w-20 h-20 bg-white rounded-[1.5rem] shadow-xl shadow-sky-100 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">⚙️</div>
          <div>
-            <h3 className="text-xl font-black text-sky-900 tracking-tighter italic uppercase">Hardware Logistics Logic</h3>
+            <h3 className="text-xl font-black text-sky-900 tracking-tighter italic uppercase">Vehicle Fleet Status</h3>
             <p className="text-sky-600 font-bold text-sm max-w-2xl leading-relaxed mt-1 uppercase tracking-wider">
-               Managing {vehicles.length} operational units. Status indicators show real-time workload balance across In-house and Outsourced categories.
+               Managing {vehicles.length} vehicles. Status shows active and available vehicles in the fleet.
             </p>
          </div>
       </div>
@@ -203,10 +207,10 @@ export default function VehiclesPage() {
           <table className="min-w-full">
             <thead>
               <tr className="border-b border-slate-50">
-                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Asset ID</th>
-                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Node Logic</th>
-                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Source Allocation</th>
-                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">State</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Vehicle ID</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Type</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Status</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Availability</th>
                 <th className="px-8 py-8 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Operations</th>
               </tr>
             </thead>
@@ -217,10 +221,14 @@ export default function VehiclesPage() {
                      <span className="font-black text-slate-900 italic tracking-tighter text-2xl block leading-none">{v.vehicle_id}</span>
                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 block">{v.registration_no}</span>
                   </td>
-                  <td className="px-8 py-8 text-slate-600 font-black italic tracking-tight">{v.type} ({v.capacity})</td>
                   <td className="px-8 py-8">
                     <span className={`inline-flex px-4 py-1.5 rounded-full text-[10px] font-black uppercase italic tracking-widest ${v.is_outsourced ? 'bg-purple-500 text-white' : 'bg-emerald-500 text-white'} shadow-lg`}>
-                      {v.is_outsourced ? 'Outsourced Path' : 'In-House Asset'}
+                      {v.is_outsourced ? 'Outsourced' : 'In-House'}
+                    </span>
+                  </td>
+                  <td className="px-8 py-8">
+                    <span className={`inline-flex px-4 py-1.5 rounded-full text-[10px] font-black uppercase italic tracking-widest ${!v.is_active ? 'bg-purple-500 text-white' : 'bg-emerald-500 text-white'} shadow-lg`}>
+                      {!v.is_active ? 'Inactive' : 'Active'}
                     </span>
                   </td>
                   <td className="px-8 py-8">
@@ -247,51 +255,61 @@ export default function VehiclesPage() {
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-3xl flex items-center justify-center z-50 p-6">
           <div className="bg-white rounded-[4rem] shadow-2xl w-full max-w-2xl p-14 overflow-y-auto max-h-[90vh] border border-white/50 relative">
             <button onClick={() => setShowModal(false)} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900 text-4xl transition-all font-black">✕</button>
-            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">{editingVehicle ? 'Edit Resource' : 'Provision Asset'}</h2>
-            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-12">Hardware Log Identification</p>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">{editingVehicle ? 'Edit Vehicle' : 'Add Vehicle'}</h2>
+            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-12">Vehicle Information</p>
             
             <form onSubmit={handleSubmit} className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Asset Code *</label>
-                  <input required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="V-101" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})} />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Vehicle ID *</label>
+                  <input disabled className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="Auto-generated" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})} />
                 </div>
                 <div className="space-y-3">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Model Logic</label>
-                  <input className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="Hino FG" value={formData.make} onChange={e => setFormData({...formData, make: e.target.value})} />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Make</label>
+                  <input className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="Hino" value={formData.make} onChange={e => setFormData({...formData, make: e.target.value})} />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">License Plate</label>
-                  <input className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="RWP 1234" value={formData.registration_no} onChange={e => setFormData({...formData, registration_no: e.target.value})} />
+                  <input className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="RWP-1234" value={formData.registration_no} onChange={e => setFormData({...formData, registration_no: e.target.value})} />
                 </div>
                 <div className="space-y-3">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Weight Class</label>
-                  <input className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="10 Tons" value={formData.capacity} onChange={e => setFormData({...formData, capacity: e.target.value})} />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Capacity</label>
+                  <input className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="10 tons" value={formData.capacity} onChange={e => setFormData({...formData, capacity: e.target.value})} />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Lifecycle State</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Status</label>
                     <select className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
                       <option value="available">Available</option>
-                      <option value="in_use">In Operational Use</option>
-                      <option value="maintenance">Maintenance Protocol</option>
+                      <option value="in_use">In Use</option>
+                      <option value="maintenance">Maintenance</option>
                     </select>
                  </div>
                  <div className="flex items-center pt-8">
                     <label className="flex items-center gap-4 cursor-pointer group">
                        <input type="checkbox" className="w-6 h-6 rounded-lg text-sky-600 focus:ring-sky-500" checked={formData.is_outsourced} onChange={e => setFormData({...formData, is_outsourced: e.target.checked})} />
-                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic group-hover:text-slate-900 transition-colors">Outsourced Resource Path</span>
+                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic group-hover:text-slate-900 transition-colors">Outsourced</span>
                     </label>
                  </div>
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                 <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Active Status</label>
+                    <select className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" value={formData.is_active ? 'true' : 'false'} onChange={e => setFormData({...formData, is_active: e.target.value === 'true'})}>
+                      <option value="true">Active</option>
+                      <option value="false">Inactive</option>
+                    </select>
+                 </div>
+              </div>
+
               <button type="submit" className="w-full py-8 bg-slate-900 text-white rounded-[2rem] font-black text-xl shadow-2xl hover:bg-sky-500 transition-all active:scale-[0.98] uppercase tracking-[0.1em] italic">
-                 Execute Provisioning
+                 Save
               </button>
             </form>
           </div>
@@ -301,16 +319,16 @@ export default function VehiclesPage() {
       {showImportModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-3xl flex items-center justify-center z-50 p-6">
           <div className="bg-white rounded-[4rem] shadow-2xl w-full max-w-md p-12 text-center border border-white/50">
-             <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic mb-8">Asset ingestion</h3>
+             <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic mb-8">Import Vehicles</h3>
              <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={e => setImportFile(e.target.files?.[0] || null)} />
              <div onClick={() => fileInputRef.current?.click()} className="cursor-pointer border-4 border-dashed border-slate-100 rounded-[3rem] p-12 hover:border-sky-500 hover:bg-sky-50 transition-all mb-8">
                 <p className="text-4xl mb-4">📂</p>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{importFile ? importFile.name : 'Select Logistics Manifest'}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{importFile ? importFile.name : 'Select Excel File'}</p>
              </div>
              <div className="flex gap-4">
                 <button onClick={() => setShowImportModal(false)} className="flex-1 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400 hover:bg-slate-50">Cancel</button>
                 <button onClick={handleBulkImport} disabled={!importFile || importing} className="flex-1 py-5 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest italic shadow-xl">
-                   {importing ? 'INGESTING...' : 'INITIATE IMPORT'}
+                   {importing ? 'Importing...' : 'Import'}
                 </button>
              </div>
           </div>

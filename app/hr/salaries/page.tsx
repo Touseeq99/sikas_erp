@@ -153,13 +153,13 @@ export default function SalariesPage() {
           onClick={() => setActiveTab('driver')}
           className={`px-10 py-3 rounded-[2rem] font-black text-xs transition-all uppercase tracking-widest italic ${activeTab === 'driver' ? 'bg-white text-slate-900 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}
         >
-          🚚 Fleet Pilots
+          🚚 Drivers
         </button>
         <button 
           onClick={() => setActiveTab('employee')}
           className={`px-10 py-3 rounded-[2rem] font-black text-xs transition-all uppercase tracking-widest italic ${activeTab === 'employee' ? 'bg-white text-slate-900 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}
         >
-          🏢 Command Staff
+          🏢 Employees
         </button>
       </div>
 
@@ -252,12 +252,12 @@ export default function SalariesPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Salary ID *</label>
-                  <input required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="S1001" value={formData.salary_id} onChange={e => setFormData({...formData, salary_id: e.target.value})} />
+                  <input disabled className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="Auto-generated" value={formData.salary_id} onChange={e => setFormData({...formData, salary_id: e.target.value})} />
                 </div>
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Disbursement Node</label>
                   <select className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as any, employee_id: ''})}>
-                    <option value="driver">Fleet Pilot Payroll</option>
+                    <option value="driver">Driver Payroll</option>
                     <option value="employee">Staff Intelligence Payroll</option>
                   </select>
                 </div>

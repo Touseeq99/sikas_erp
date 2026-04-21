@@ -9,30 +9,30 @@ import sikasLogo from '../../sikas_logo.jpeg'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: '📊' },
-  { name: 'Control Data', href: '/master-data', icon: '📁', children: [
+  { name: 'Directory', href: '/master-data', icon: '📁', children: [
     { name: 'Vehicles', href: '/master-data/vehicles', icon: '🚛' },
     { name: 'Drivers', href: '/master-data/drivers', icon: '👤' },
     { name: 'Employees', href: '/master-data/employees', icon: '👥' },
     { name: 'Clients', href: '/master-data/clients', icon: '🏢' },
     { name: 'Departments', href: '/master-data/departments', icon: '🏢' },
-    { name: 'Asset Specs', href: '/master-data/tile-types', icon: '🧱' },
+    { name: 'Tile Inventory', href: '/master-data/tile-types', icon: '🧱' },
   ]},
-  { name: 'Operations', href: '/orders', icon: '📋' },
-  { name: 'HR Control', href: '/hr', icon: '👥', children: [
+  { name: 'Orders', href: '/orders', icon: '📋' },
+  { name: 'HR', href: '/hr', icon: '👥', children: [
     { name: 'Attendance', href: '/hr/attendance', icon: '📅' },
-    { name: 'Salaries', href: '/hr/salaries', icon: '💵' },
+    { name: 'Payroll', href: '/hr/salaries', icon: '💵' },
   ]},
-  { name: 'Financials', href: '/finance', icon: '💰', children: [
-    { name: 'Master Ledger (P&L)', href: '/finance/revenue', icon: '📊' },
-    { name: 'Billing Nodes', href: '/finance/invoices', icon: '📄' },
-    { name: 'General Expenses', href: '/finance/expenses', icon: '💸' },
+  { name: 'Finance', href: '/finance', icon: '💰', children: [
+    { name: 'Revenue', href: '/finance/revenue', icon: '📊' },
+    { name: 'Invoices', href: '/finance/invoices', icon: '📄' },
+    { name: 'Expenses', href: '/finance/expenses', icon: '💸' },
   ]},
-  { name: 'Fleet Control', href: '/fleet', icon: '🚛', children: [
-    { name: 'Fuel Logs', href: '/fleet/fuel', icon: '⛽' },
-    { name: 'Health/Service', href: '/fleet/maintenance', icon: '🔧' },
-    { name: 'Usage Logs', href: '/fleet/usage-logs', icon: '📝' },
+  { name: 'Fleet', href: '/fleet', icon: '🚛', children: [
+    { name: 'Fuel', href: '/fleet/fuel', icon: '⛽' },
+    { name: 'Maintenance', href: '/fleet/maintenance', icon: '🔧' },
+    { name: 'Trips', href: '/fleet/usage-logs', icon: '📝' },
   ]},
-  { name: 'Intelligence CRM', href: '/crm', icon: '🤝', children: [
+  { name: 'CRM', href: '/crm', icon: '🤝', children: [
     { name: 'Inquiries', href: '/crm/inquiries', icon: '📧' },
   ]},
 ]
@@ -40,7 +40,7 @@ const navigation = [
 export default function Sidebar() {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(true)
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(['Control Data', 'Operations', 'HR Control'])
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(['Directory', 'Orders', 'HR'])
 
   const toggleMenu = (menuName: string) => {
     setExpandedMenus(prev => 
@@ -149,7 +149,7 @@ export default function Sidebar() {
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1 italic">Status</p>
             <p className="text-xs font-black text-emerald-500 uppercase flex items-center gap-2">
                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_#10b981]"></span>
-               Encrypted Node
+               System Online
             </p>
          </div>
       </div>

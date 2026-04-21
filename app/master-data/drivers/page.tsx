@@ -61,7 +61,7 @@ export default function DriversPage() {
       } else {
         await supabase.from('drivers').insert(payload)
       }
-      alert('Pilot profile updated.')
+      alert('Driver profile updated.')
       setShowModal(false)
       setEditingDriver(null)
       loadDrivers()
@@ -84,7 +84,7 @@ export default function DriversPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('De-authorize this pilot from fleet operations?')) {
+    if (confirm('De-authorize this driver from fleet operations?')) {
       try {
         await supabase.from('drivers').delete().eq('id', id)
         loadDrivers()
@@ -114,7 +114,7 @@ export default function DriversPage() {
       if (imported.length > 0) {
         await supabase.from('drivers').upsert(imported, { onConflict: 'driver_id' })
         loadDrivers()
-        alert('Pilot logs imported.')
+        alert('Driver records imported.')
       }
     } catch (err: any) {
       alert('Import failed: ' + err.message)
@@ -134,7 +134,7 @@ export default function DriversPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
-          <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Fleet <span className="text-sky-500">Pilots</span></h1>
+          <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Fleet <span className="text-sky-500">Drivers</span></h1>
           <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Human Resource Node Management</p>
         </div>
         <div className="flex items-center gap-4 bg-white p-3 rounded-[2rem] shadow-sm border border-slate-100">
@@ -142,7 +142,7 @@ export default function DriversPage() {
             Import Talent
           </button>
           <button onClick={() => { setEditingDriver(null); setShowModal(true) }} className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs hover:bg-sky-500 transition-all shadow-xl shadow-slate-200 uppercase tracking-widest italic">
-            + Enlist Pilot
+            + Add Driver
           </button>
         </div>
       </div>
@@ -170,7 +170,7 @@ export default function DriversPage() {
           <table className="min-w-full">
             <thead>
               <tr className="border-b border-slate-50">
-                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Pilot ID</th>
+                <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Driver ID</th>
                 <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Identity Manifest</th>
                 <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Authorization Code</th>
                 <th className="px-8 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Comms Node</th>
@@ -183,7 +183,7 @@ export default function DriversPage() {
                   <td className="px-8 py-8 font-black text-slate-900 italic tracking-tighter text-2xl">{d.driver_id}</td>
                   <td className="px-8 py-8">
                      <span className="font-black text-slate-800 uppercase tracking-tight text-sm block leading-none">{d.name}</span>
-                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 block">Level 1 Pilot</span>
+                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 block">Driver</span>
                   </td>
                   <td className="px-8 py-8 text-slate-600 font-black italic tracking-tight">{d.license_no}</td>
                   <td className="px-8 py-8 text-slate-600 font-black italic tracking-tight">{d.contact_info || d.phone}</td>
@@ -200,19 +200,19 @@ export default function DriversPage() {
         </div>
       </div>
 
-      {/* Pilot Enlistment Modal */}
+      {/* Driver Add Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-3xl flex items-center justify-center z-50 p-6">
           <div className="bg-white rounded-[4rem] shadow-2xl w-full max-w-2xl p-14 overflow-y-auto max-h-[90vh] border border-white/50 relative">
             <button onClick={() => setShowModal(false)} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900 text-4xl transition-all font-black">✕</button>
-            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">{editingDriver ? 'Modify Profile' : 'Enlist Pilot'}</h2>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">{editingDriver ? 'Modify Profile' : 'Add Driver'}</h2>
             <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-12">Human Resource Identity protocol</p>
             
             <form onSubmit={handleSubmit} className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Pilot Code *</label>
-                  <input required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="P-001" value={formData.driver_id} onChange={e => setFormData({...formData, driver_id: e.target.value})} />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Driver Code *</label>
+                  <input disabled className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="Auto-generated" value={formData.driver_id} onChange={e => setFormData({...formData, driver_id: e.target.value})} />
                 </div>
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Legal Name</label>
@@ -237,7 +237,7 @@ export default function DriversPage() {
               </div>
 
               <button type="submit" className="w-full py-8 bg-slate-900 text-white rounded-[2rem] font-black text-xl shadow-2xl hover:bg-sky-500 transition-all active:scale-[0.98] uppercase tracking-[0.2em] italic">
-                 Commit Enlistment
+                 Add Driver
               </button>
             </form>
           </div>
@@ -251,7 +251,7 @@ export default function DriversPage() {
              <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={e => setImportFile(e.target.files?.[0] || null)} />
              <div onClick={() => fileInputRef.current?.click()} className="cursor-pointer border-4 border-dashed border-slate-100 rounded-[3rem] p-12 hover:border-sky-500 hover:bg-sky-50 transition-all mb-8">
                 <p className="text-4xl mb-4">👔</p>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{importFile ? importFile.name : 'Select Pilot Manifest'}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{importFile ? importFile.name : 'Select File'}</p>
              </div>
              <div className="flex gap-4">
                 <button onClick={() => setShowImportModal(false)} className="flex-1 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400 hover:bg-slate-50">Cancel</button>

@@ -137,11 +137,11 @@ export default function TripsPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
           <h1 className="text-6xl font-black text-slate-900 tracking-tighter italic leading-none uppercase">Trip <span className="text-sky-500">Yield</span></h1>
-          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Automated Performance Manifest</p>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-3 ml-1">Trip Profit Records</p>
         </div>
         <div className="flex items-center gap-4 bg-white p-3 rounded-[2rem] shadow-sm border border-slate-100">
           <button onClick={() => { setEditingTrip(null); resetForm(); setShowModal(true) }} className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs hover:bg-sky-500 transition-all shadow-xl shadow-slate-200 uppercase tracking-widest italic">
-            + Provision Yield Manifest
+            + Add Record
           </button>
         </div>
       </div>
@@ -150,15 +150,15 @@ export default function TripsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="bg-slate-900 rounded-[4rem] p-12 text-white shadow-2xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2"></div>
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 italic">Linked Gross Revenue</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Total Revenue</p>
           <p className="text-5xl font-black italic tracking-tighter text-emerald-400">PKR {(totalRevenue/1000).toFixed(0)}K</p>
         </div>
         <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm relative overflow-hidden group">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Aggregated Yield Burn</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Total Expenses</p>
           <p className="text-5xl font-black text-red-500 italic uppercase">PKR {(totalExpenses/1000).toFixed(0)}K</p>
         </div>
         <div className="bg-white rounded-[4rem] p-12 border border-slate-100 shadow-sm relative overflow-hidden group">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Net Operational Yield</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 italic">Net Profit</p>
           <p className="text-5xl font-black text-sky-500 italic uppercase">PKR {(totalProfit/1000).toFixed(0)}K</p>
         </div>
       </div>
@@ -220,10 +220,10 @@ export default function TripsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Manifest Key *</label>
-                  <input required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="PT-1600" value={formData.trip_id} onChange={e => setFormData({...formData, trip_id: e.target.value})} />
+                  <input disabled className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner" placeholder="Auto-generated" value={formData.trip_id} onChange={e => setFormData({...formData, trip_id: e.target.value})} />
                 </div>
                 <div className="space-y-3">
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Link Operational Order *</label>
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4">Link Order ID *</label>
                    <select required className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 font-black text-xl italic focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner border-sky-100" value={formData.order_id} onChange={e => handleOrderChange(e.target.value)}>
                      <option value="">Select ID...</option>
                      {orders.map(o => <option key={o.id} value={o.order_id}>{o.order_id} - {o.client_id}</option>)}

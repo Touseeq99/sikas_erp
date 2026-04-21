@@ -314,6 +314,7 @@ CREATE TABLE trips (
     trip_date DATE NOT NULL,
     origin VARCHAR(255),
     destination VARCHAR(255),
+    location VARCHAR(255),
     distance_km INTEGER DEFAULT 0,
     weight_tons DECIMAL(10,2) DEFAULT 0,
     rate_per_ton DECIMAL(10,2) DEFAULT 0,
