@@ -80,14 +80,9 @@ export default function AttendancePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!formData.attendance_id) {
-      alert('Code identification required.')
-      return
-    }
 
     const payload: any = {
-      attendance_id: formData.attendance_id,
+      attendance_id: formData.attendance_id || `ATT${Date.now()}`,
       attendance_date: formData.attendance_date,
       status: formData.status,
       notes: formData.notes,
